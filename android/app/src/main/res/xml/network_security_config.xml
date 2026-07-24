@@ -14,5 +14,6 @@
         <!-- PC de développement sur le réseau Wi-Fi -->
         <domain includeSubdomains="false">192.168.100.12</domain>
         <domain includeSubdomains="false">192.168.1.24</domain>
+        <domain includeSubdomains="false">192.168.1.47</domain>
     </domain-config>
 </network-security-config>

@@ -18,7 +18,7 @@ class AppConfig {
     // Téléphone physique : le backend est joint via l'IP locale du PC
     // sur le même réseau Wi-Fi. Si l'IP du PC change, mettez-la à jour ici
     // ou lancez avec --dart-define=API_BASE_URL=http://<nouvelle-ip>:8000
-    if (!kIsWeb && Platform.isAndroid) return 'http://192.168.1.24:8000';
+    if (!kIsWeb && Platform.isAndroid) return 'http://192.168.1.47:8000';
 
     return 'http://localhost:8000';
   }
