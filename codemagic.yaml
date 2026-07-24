@@ -1,0 +1,98 @@
+# Configuration Codemagic — build iOS de l'application Medolia (Flutter).
+#
+# Deux workflows :
+#   • ios-unsigned : construit un IPA NON signé, utilisable dès aujourd'hui
+#     sans compte Apple Developer. L'artefact ne s'installe pas directement
+#     sur un iPhone (il faut le re-signer, p. ex. via Sideloadly/AltStore),
+#     mais il valide que le projet compile bien pour iOS de bout en bout.
+#   • ios-signed : gabarit prêt à l'emploi pour produire un IPA signé
+#     (TestFlight / App Store / ad-hoc) une fois l'adhésion Apple Developer
+#     Program obtenue. Il est volontairement laissé en commentaire.
+#
+# Prise en main : https://docs.codemagic.io/yaml-quick-start/building-a-flutter-app/
+
+workflows:
+  ios-unsigned:
+    name: iOS — build non signé
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+    scripts:
+      - name: Dépendances Flutter
+        script: flutter pub get
+      - name: Analyse statique
+        script: flutter analyze
+      - name: Build iOS (sans signature)
+        script: flutter build ios --release --no-codesign
+      - name: Empaqueter un IPA non signé
+        # flutter build ios dépose l'app dans build/ios/iphoneos/Runner.app.
+        # On la place dans un dossier Payload/ puis on zippe : c'est la
+        # structure attendue d'un .ipa.
+        script: |
+          set -e
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -R Runner.app Payload/
+          zip -r ../../../Medolia-unsigned.ipa Payload
+    artifacts:
+      - Medolia-unsigned.ipa
+      - build/ios/iphoneos/Runner.app
+      - flutter_drive.log
+    # Envoi de l'artefact par e-mail à la fin du build (facultatif).
+    publishing:
+      email:
+        recipients:
+          - jeanjoel272@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  # ---------------------------------------------------------------------------
+  # ios-signed : à activer une fois le compte Apple Developer Program en place.
+  #
+  # Étapes préalables, côté interface Codemagic (Teams → Integrations) :
+  #   1. Créer une clé App Store Connect API et l'ajouter comme intégration
+  #      « app_store_connect » (remplacer <NOM_INTEGRATION> ci-dessous).
+  #   2. Vérifier que le bundle identifier ci-dessous correspond à un App ID
+  #      enregistré sur le portail Apple. Le bundle actuel du projet est
+  #      « com.example.myClinic » : Apple refuse le préfixe com.example ; il
+  #      faudra le remplacer par un identifiant à toi (ex. com.medolia.app)
+  #      dans ios/Runner.xcodeproj et ici.
+  #   3. Choisir distribution_type : app_store, ad_hoc ou development.
+  #
+  # ios-signed:
+  #   name: iOS — build signé
+  #   instance_type: mac_mini_m2
+  #   max_build_duration: 60
+  #   integrations:
+  #     app_store_connect: <NOM_INTEGRATION>
+  #   environment:
+  #     flutter: stable
+  #     xcode: latest
+  #     cocoapods: default
+  #     ios_signing:
+  #       distribution_type: app_store
+  #       bundle_identifier: com.medolia.app
+  #   scripts:
+  #     - name: Dépendances Flutter
+  #       script: flutter pub get
+  #     - name: Récupérer les profils de provisionnement
+  #       script: xcode-project use-profiles
+  #     - name: Build IPA signé
+  #       script: |
+  #         flutter build ipa --release \
+  #           --export-options-plist=/Users/builder/export_options.plist
+  #   artifacts:
+  #     - build/ios/ipa/*.ipa
+  #   publishing:
+  #     # Publication automatique sur TestFlight (facultatif).
+  #     app_store_connect:
+  #       auth: integration
+  #       submit_to_testflight: true

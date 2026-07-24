@@ -1,0 +1,5 @@
+tags:
+  # Nécessite le backend Laravel démarré et sa base de données.
+  # Exécution : flutter test --run-skipped --tags integration
+  integration:
+    skip: "Test d'intégration : lancez le backend puis « flutter test --run-skipped --tags integration »"
