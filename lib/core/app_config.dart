@@ -11,15 +11,23 @@ class AppConfig {
 
   static const String _defined = String.fromEnvironment('API_BASE_URL');
 
+  /// Domaine statique ngrok : tunnel HTTPS stable vers le backend local
+  /// (php artisan serve sur le PC). L'URL ne change pas d'un lancement à
+  /// l'autre, donc l'APK reste valable même hors du réseau Wi-Fi du PC.
+  /// Lancer côté PC : ngrok http --domain=CE-DOMAINE 8000
+  static const String _ngrokUrl =
+      'https://delusion-obedient-banister.ngrok-free.dev';
+
   /// URL de base du backend (sans slash final).
   static String get baseUrl {
     if (_defined.isNotEmpty) return _defined;
 
-    // Téléphone physique : le backend est joint via l'IP locale du PC
-    // sur le même réseau Wi-Fi. Si l'IP du PC change, mettez-la à jour ici
-    // ou lancez avec --dart-define=API_BASE_URL=http://<nouvelle-ip>:8000
-    if (!kIsWeb && Platform.isAndroid) return 'http://192.168.1.47:8000';
+    // Téléphone physique : passe par le tunnel ngrok public (HTTPS),
+    // indépendant de l'IP locale du PC et du réseau. Surchargeable via
+    // --dart-define=API_BASE_URL=http://<ip>:8000 pour un test en Wi-Fi local.
+    if (!kIsWeb && Platform.isAndroid) return _ngrokUrl;
 
+    // Bureau / web : backend joint en direct sur la même machine.
     return 'http://localhost:8000';
   }
 

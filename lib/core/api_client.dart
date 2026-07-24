@@ -23,6 +23,9 @@ class ApiClient {
   Map<String, String> get _headers => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        // Évite la page d'avertissement HTML de ngrok (plan gratuit) qui,
+        // sinon, remplacerait le JSON attendu. Sans effet hors ngrok.
+        'ngrok-skip-browser-warning': 'true',
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
