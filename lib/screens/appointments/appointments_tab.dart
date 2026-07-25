@@ -622,12 +622,18 @@ class StatusPill extends StatelessWidget {
         children: [
           Icon(appointment.statusIcon, size: large ? 18 : 14, color: color),
           const SizedBox(width: 5),
-          Text(
-            appointment.statusLabel,
-            style: TextStyle(
-              fontSize: large ? 14 : 12,
-              fontWeight: FontWeight.w600,
-              color: color,
+          // Le libellé se tronque plutôt que de déborder de la pastille quand
+          // la taille de texte du système est agrandie.
+          Flexible(
+            child: Text(
+              appointment.statusLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: large ? 14 : 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],

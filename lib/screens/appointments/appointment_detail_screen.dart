@@ -392,8 +392,18 @@ class _DetailRow extends StatelessWidget {
   /// pour que les valeurs démarrent toutes sur la même colonne.
   static const _labelWidth = 78.0;
 
+  /// Plafond de la colonne de libellé : au-delà, la valeur n'aurait plus assez
+  /// de place sur un écran étroit.
+  static const _maxLabelWidth = 110.0;
+
   @override
   Widget build(BuildContext context) {
+    // La colonne suit la taille de texte du système, sinon « Demandé le »
+    // passe sur deux lignes dès que l'utilisateur agrandit le texte.
+    final labelWidth = MediaQuery.textScalerOf(context)
+        .scale(_labelWidth)
+        .clamp(_labelWidth, _maxLabelWidth);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -404,7 +414,7 @@ class _DetailRow extends StatelessWidget {
           Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 12),
           SizedBox(
-            width: _labelWidth,
+            width: labelWidth,
             child: Text(
               label,
               // Même interligne que la valeur pour que les deux premières
