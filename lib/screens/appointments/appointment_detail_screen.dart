@@ -388,24 +388,34 @@ class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
 
+  /// Même largeur de libellé que le récapitulatif de prise de rendez-vous,
+  /// pour que les valeurs démarrent toutes sur la même colonne.
+  static const _labelWidth = 78.0;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
+        // Icône et libellé restent au niveau de la première ligne quand la
+        // valeur est longue (un motif de consultation, par exemple).
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 12),
           SizedBox(
-            width: 80,
-            child:
-                Text(label, style: TextStyle(color: Colors.grey.shade600)),
+            width: _labelWidth,
+            child: Text(
+              label,
+              // Même interligne que la valeur pour que les deux premières
+              // lignes reposent sur la même ligne de base.
+              style: TextStyle(color: Colors.grey.shade600, height: 1.35),
+            ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500, height: 1.35),
             ),
           ),
         ],

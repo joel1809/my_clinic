@@ -932,21 +932,34 @@ class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
 
+  /// Largeur réservée au libellé pour que les valeurs des lignes successives
+  /// (Date, Horaire, Durée) démarrent toutes sur la même colonne.
+  static const _labelWidth = 78.0;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
+        // Icône et libellé restent au niveau de la première ligne quand la
+        // valeur passe sur deux lignes (« Samedi 25 juillet 2026 »).
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: Colors.grey.shade600)),
-          const Spacer(),
-          Flexible(
+          SizedBox(
+            width: _labelWidth,
+            child: Text(
+              label,
+              // Même interligne que la valeur pour que les deux premières
+              // lignes reposent sur la même ligne de base.
+              style: TextStyle(color: Colors.grey.shade600, height: 1.35),
+            ),
+          ),
+          Expanded(
             child: Text(
               value,
-              textAlign: TextAlign.end,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35),
             ),
           ),
         ],
