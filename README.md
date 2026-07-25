@@ -11,19 +11,24 @@ tokens Sanctum).
   naissance, adresse).
 - **Catalogue** : spécialités actives (avec nombre de médecins), liste des
   médecins filtrable par spécialité, fiche détaillée d'un médecin.
-- **Prise de rendez-vous** en trois étapes : choix du jour de consultation,
-  choix du créneau horaire (les créneaux occupés sont barrés), motif +
-  téléphone puis confirmation. Gestion du conflit « créneau pris entre-temps »
-  (les créneaux sont rechargés automatiquement).
-- **Mes rendez-vous** : liste paginée (défilement infini), détail, annulation
-  quand le rendez-vous le permet (`is_cancellable`).
+- **Prise de rendez-vous** en trois étapes, avec fil d'étapes cliquable pour
+  revenir en arrière : choix du jour (cartes datées, journées complètes
+  signalées), choix du créneau (regroupés en matin / après-midi / soirée, les
+  créneaux occupés sont barrés), puis récapitulatif avec motif + téléphone et
+  motifs fréquents proposés en un geste. Gestion du conflit « créneau pris
+  entre-temps » (les créneaux sont rechargés automatiquement).
+- **Mes rendez-vous** : liste paginée (défilement infini) filtrable
+  (« À venir » / « Historique »), détail, annulation quand le rendez-vous le
+  permet (`is_cancellable`).
 - **Actualités** : articles publiés, paginés et filtrables par catégorie,
   fiche détaillée avec contenu et galerie.
-- **Espace médecin** : gestion de ses plages de disponibilité (onglet
-  « Créneaux ») — hebdomadaires ou à dates précises — dont découlent les
-  créneaux proposés aux patients ; consultation des dossiers médicaux de ses
-  patients entièrement dans l'app (images en plein écran, PDF dans le lecteur
-  intégré `pdfx`).
+- **Espace médecin** : **confirmation et annulation des rendez-vous** de ses
+  patients depuis la liste ou le détail (filtre « À confirmer » avec compteur
+  des demandes en attente, appel du patient en un tap) ; gestion de ses plages
+  de disponibilité (onglet « Créneaux ») — hebdomadaires ou à dates précises —
+  dont découlent les créneaux proposés aux patients ; consultation des dossiers
+  médicaux de ses patients entièrement dans l'app (images en plein écran, PDF
+  dans le lecteur intégré `pdfx`).
 
 ## Démarrage
 
