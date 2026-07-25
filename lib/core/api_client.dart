@@ -58,9 +58,16 @@ class ApiClient {
       throw const NetworkException();
     }
 
-    final dynamic decoded = response.body.isEmpty
-        ? null
-        : jsonDecode(utf8.decode(response.bodyBytes));
+    final dynamic decoded;
+    try {
+      decoded = response.body.isEmpty
+          ? null
+          : jsonDecode(utf8.decode(response.bodyBytes));
+    } on FormatException {
+      // Réponse non-JSON : page HTML d'un proxy (tunnel arrêté), portail
+      // Wi-Fi captif, erreur serveur brute... L'API n'a pas répondu.
+      throw const NetworkException();
+    }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return decoded;

@@ -1,9 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../core/api_exception.dart';
 import '../models/specialty.dart';
+
+/// Abréviation du mois en français sans point final, ex. « août », « janv ».
+String monthShort(DateTime date) =>
+    DateFormat('MMM', 'fr_FR').format(date).replaceAll('.', '');
 
 /// Fait apparaître son enfant en fondu avec un léger glissement vers le haut.
 ///

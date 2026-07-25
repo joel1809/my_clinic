@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'doctor.dart';
 
@@ -76,5 +77,43 @@ class Appointment {
         _ => Theme.of(context).colorScheme.primary,
       };
 
-  bool get isUpcoming => status == 'pending' || status == 'confirmed';
+  IconData get statusIcon => switch (status) {
+        'pending' => Icons.hourglass_top_rounded,
+        'confirmed' => Icons.check_circle_rounded,
+        'cancelled' => Icons.cancel_rounded,
+        'completed' => Icons.task_alt_rounded,
+        _ => Icons.event_rounded,
+      };
+
+  /// Date du rendez-vous, ou null si le serveur renvoie un format inattendu.
+  DateTime? get date => DateTime.tryParse(scheduledDate);
+
+  /// Le jour du rendez-vous est-il révolu ?
+  bool get isPast {
+    final date = this.date;
+    if (date == null) return false;
+    final now = DateTime.now();
+    return date.isBefore(DateTime(now.year, now.month, now.day));
+  }
+
+  /// Rendez-vous encore d'actualité : non annulé/terminé et pas encore passé.
+  bool get isUpcoming =>
+      (status == 'pending' || status == 'confirmed') && !isPast;
+
+  /// Libellé long de la date, ex. « Lundi 3 août 2026 ».
+  String get longDateLabel {
+    final date = this.date;
+    if (date == null) return scheduledDate;
+    return toBeginningOfSentenceCase(
+        DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(date));
+  }
+
+  /// Libellé court de la date, ex. « lun. 3 août ».
+  String get shortDateLabel {
+    final date = this.date;
+    if (date == null) return scheduledDate;
+    return DateFormat('EEE d MMM', 'fr_FR').format(date);
+  }
+
+  String get timeRangeLabel => '$startTime - $endTime';
 }
