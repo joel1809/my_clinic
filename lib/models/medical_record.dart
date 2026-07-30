@@ -1,14 +1,22 @@
+import 'insurance.dart';
+
 /// Dossier médical d'un patient, vu par un médecin ou un administrateur
 /// (réponse de GET /patients/{id}/medical-record).
 class PatientRecord {
   const PatientRecord({
     required this.patient,
     this.record,
+    this.insurances = const [],
     this.documents = const [],
   });
 
   final RecordPatient patient;
   final MedicalRecordSummary? record;
+
+  /// Assurances couvrant le patient : celles déclarées lors de ses rendez-vous
+  /// rejoignent son dossier et y restent, s'ajoutant à celles saisies par
+  /// l'administration.
+  final List<Insurance> insurances;
   final List<MedicalDocumentItem> documents;
 
   factory PatientRecord.fromJson(Map<String, dynamic> json) => PatientRecord(
@@ -18,6 +26,9 @@ class PatientRecord {
             ? MedicalRecordSummary.fromJson(
                 json['record'] as Map<String, dynamic>)
             : null,
+        insurances: (json['insurances'] as List? ?? const [])
+            .map((i) => Insurance.fromJson(i as Map<String, dynamic>))
+            .toList(),
         documents: (json['documents'] as List? ?? const [])
             .map((d) =>
                 MedicalDocumentItem.fromJson(d as Map<String, dynamic>))

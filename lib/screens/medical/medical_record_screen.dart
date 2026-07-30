@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_config.dart';
+import '../../models/insurance.dart';
 import '../../models/medical_record.dart';
 import '../../repositories/medical_record_repository.dart';
 import '../../theme.dart';
@@ -184,12 +185,17 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
               _PatientCard(patient: record.patient),
               const SizedBox(height: 28),
               const SectionHeader(title: 'Fiche médicale'),
-              if (record.record == null)
+              // Les assurances suffisent à remplir la carte : un patient peut
+              // en avoir déclaré sans qu'aucune synthèse clinique n'existe.
+              if (record.record == null && record.insurances.isEmpty)
                 const _PlaceholderCard(
                   message: 'Aucune fiche médicale renseignée pour ce patient.',
                 )
               else
-                _RecordCard(record: record.record!),
+                _RecordCard(
+                  record: record.record,
+                  insurances: record.insurances,
+                ),
               const SizedBox(height: 28),
               SectionHeader(title: 'Documents (${record.documents.length})'),
               if (record.documents.isEmpty)
@@ -296,9 +302,11 @@ class _PatientCard extends StatelessWidget {
 }
 
 class _RecordCard extends StatelessWidget {
-  const _RecordCard({required this.record});
+  const _RecordCard({required this.record, required this.insurances});
 
-  final MedicalRecordSummary record;
+  /// Synthèse clinique, absente tant qu'aucune fiche n'a été ouverte.
+  final MedicalRecordSummary? record;
+  final List<Insurance> insurances;
 
   @override
   Widget build(BuildContext context) {
@@ -310,27 +318,32 @@ class _RecordCard extends StatelessWidget {
             _RecordRow(
               icon: Icons.bloodtype_outlined,
               label: 'Groupe sanguin',
-              value: record.bloodType,
+              value: record?.bloodType,
             ),
             _RecordRow(
               icon: Icons.warning_amber_outlined,
               label: 'Allergies',
-              value: record.allergies,
+              value: record?.allergies,
             ),
             _RecordRow(
               icon: Icons.history_outlined,
               label: 'Antécédents',
-              value: record.medicalHistory,
+              value: record?.medicalHistory,
             ),
             _RecordRow(
               icon: Icons.medication_outlined,
               label: 'Traitements en cours',
-              value: record.currentMedications,
+              value: record?.currentMedications,
+            ),
+            _RecordRow(
+              icon: Icons.health_and_safety_outlined,
+              label: 'Assurances',
+              value: insurances.map((i) => i.name).join(', '),
             ),
             _RecordRow(
               icon: Icons.notes_outlined,
               label: 'Notes',
-              value: record.notes,
+              value: record?.notes,
             ),
         ],
       ),

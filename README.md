@@ -27,8 +27,9 @@ tokens Sanctum).
   des demandes en attente, appel du patient en un tap) ; gestion de ses plages
   de disponibilité (onglet « Créneaux ») — hebdomadaires ou à dates précises —
   dont découlent les créneaux proposés aux patients ; consultation des dossiers
-  médicaux de ses patients entièrement dans l'app (images en plein écran, PDF
-  dans le lecteur intégré `pdfx`).
+  médicaux de ses patients entièrement dans l'app (synthèse clinique,
+  assurances couvrant le patient, images en plein écran, PDF dans le lecteur
+  intégré `pdfx`).
 
 ## Démarrage
 

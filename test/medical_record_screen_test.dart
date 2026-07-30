@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'package:my_clinic/core/api_client.dart';
+import 'package:my_clinic/models/insurance.dart';
 import 'package:my_clinic/models/medical_record.dart';
 import 'package:my_clinic/repositories/medical_record_repository.dart';
 import 'package:my_clinic/screens/medical/medical_record_screen.dart';
@@ -41,6 +42,10 @@ void main() {
     expect(find.text('Groupe sanguin'), findsOneWidget);
     expect(find.text('O+'), findsOneWidget);
     expect(find.text('Pénicilline (éruption cutanée)'), findsOneWidget);
+
+    // Assurances reportées au dossier depuis les rendez-vous du patient.
+    expect(find.text('Assurances'), findsOneWidget);
+    expect(find.text('Assurance Alpha, Mutuelle Beta'), findsOneWidget);
 
     // Documents : la section est plus bas que la hauteur du viewport de test,
     // il faut faire défiler pour l'atteindre.
@@ -109,6 +114,10 @@ const _defaultRecord = PatientRecord(
     medicalHistory: 'Hypertension artérielle diagnostiquée en 2023.',
     currentMedications: 'Amlodipine 5 mg, 1 comprimé par jour.',
   ),
+  insurances: [
+    Insurance(id: 1, name: 'Assurance Alpha'),
+    Insurance(id: 2, name: 'Mutuelle Beta'),
+  ],
   documents: [
     MedicalDocumentItem(
       id: 2,
