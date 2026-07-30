@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/doctor.dart';
 import '../../models/specialty.dart';
 import '../../repositories/catalog_repository.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 import 'doctor_detail_screen.dart';
 
@@ -76,23 +77,30 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Nos médecins')),
+      appBar: AppBar(
+        title: const Text('Nos médecins'),
+        titleSpacing: AppSpacing.page,
+        // Pas de trait d'ombre au défilement : la barre de recherche juste
+        // en dessous fait déjà la transition avec le contenu.
+        scrolledUnderElevation: 0,
+      ),
       body: Column(
         children: [
           // Barre de recherche
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.page, 4, AppSpacing.page, 0),
             child: TextField(
               controller: _searchController,
               textInputAction: TextInputAction.search,
               onChanged: (value) => setState(() => _search = value),
               decoration: InputDecoration(
-                hintText: 'Rechercher un médecin…',
-                prefixIcon: const Icon(Icons.search),
+                hintText: 'Rechercher un médecin, une spécialité…',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
                 suffixIcon: _search.isEmpty
                     ? null
                     : IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Icons.close_rounded, size: 18),
                         tooltip: 'Effacer',
                         onPressed: () {
                           _searchController.clear();
@@ -102,9 +110,9 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
               ),
             ),
           ),
-          // Filtre par spécialité
+          // Filtre par spécialité, aéré d'une marge au-dessus et en dessous
           SizedBox(
-            height: 56,
+            height: 76,
             child: FutureBuilder<List<Specialty>>(
               future: _specialtiesFuture,
               builder: (context, snapshot) {
@@ -113,24 +121,24 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
 
                 return ListView(
                   scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.page,
+                      AppSpacing.gutter, AppSpacing.page, AppSpacing.gutter),
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: const Text('Toutes'),
+                      child: FilterPill(
+                        label: 'Toutes',
                         selected: _selected == null,
-                        onSelected: (_) => _selectSpecialty(null),
+                        onTap: () => _selectSpecialty(null),
                       ),
                     ),
                     for (final specialty in specialties)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(specialty.name),
+                        child: FilterPill(
+                          label: specialty.name,
                           selected: _selected?.id == specialty.id,
-                          onSelected: (_) => _selectSpecialty(specialty),
+                          onTap: () => _selectSpecialty(specialty),
                         ),
                       ),
                   ],
@@ -143,7 +151,7 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
               future: _doctorsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const SkeletonList(height: 92);
                 }
                 if (snapshot.hasError) {
                   return ErrorView(
@@ -156,16 +164,25 @@ class _DoctorsScreenState extends State<DoctorsScreen> {
                 if (doctors.isEmpty) {
                   return EmptyView(
                     icon: Icons.person_search_outlined,
+                    title: 'Aucun médecin',
                     message: _search.trim().isEmpty
-                        ? 'Aucun médecin disponible pour cette spécialité.'
+                        ? 'Aucun médecin n\'exerce dans cette spécialité pour le moment.'
                         : 'Aucun médecin ne correspond à « ${_search.trim()} ».',
                   );
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.all(16),
+                  // Marge basse augmentée de la zone système : en bord à bord,
+                  // la dernière carte passerait sous la barre de navigation.
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.page,
+                    AppSpacing.page,
+                    AppSpacing.page,
+                    AppSpacing.page + MediaQuery.viewPaddingOf(context).bottom,
+                  ),
                   itemCount: doctors.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppSpacing.gap),
                   itemBuilder: (context, index) => FadeSlideIn(
                     delay: Duration(milliseconds: 50 * (index % 6)),
                     child: _DoctorCard(doctor: doctors[index]),
@@ -187,58 +204,69 @@ class _DoctorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
-    return Card(
-      color: Colors.white,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => DoctorDetailScreen(doctorId: doctor.id),
-          ),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.gap),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DoctorDetailScreen(doctorId: doctor.id),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              NetworkImageBox(
-                url: doctor.photoUrl,
-                width: 64,
-                height: 64,
-                borderRadius: BorderRadius.circular(14),
-                fallbackIcon: Icons.person,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      doctor.fullName,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15),
+      ),
+      child: Row(
+        children: [
+          NetworkImageBox(
+            url: doctor.photoUrl,
+            width: 66,
+            height: 66,
+            borderRadius: BorderRadius.circular(AppRadius.control),
+            fallbackIcon: Icons.person,
+          ),
+          const SizedBox(width: AppSpacing.gutter),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(doctor.fullName, style: text.titleSmall),
+                if (doctor.specialty != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    doctor.specialty!.name,
+                    style: text.labelMedium?.copyWith(
+                      color: AppPalette.primary,
                     ),
-                    const SizedBox(height: 2),
-                    if (doctor.specialty != null)
+                  ),
+                ],
+                const SizedBox(height: 7),
+                // Durée de consultation présentée comme une étiquette : c'est
+                // une caractéristique du médecin, pas une phrase à lire.
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppPalette.canvas,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.schedule_rounded,
+                          size: 13, color: AppPalette.inkFaint),
+                      const SizedBox(width: 5),
                       Text(
-                        doctor.specialty!.name,
-                        style: TextStyle(
-                            color: scheme.primary, fontSize: 13),
+                        '${doctor.appointmentDuration} min',
+                        style: text.bodySmall?.copyWith(fontSize: 11.5),
                       ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Consultation : ${doctor.appointmentDuration} min',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade400),
-            ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: 6),
+          const Icon(Icons.chevron_right_rounded,
+              color: AppPalette.inkFaint, size: 22),
+        ],
       ),
     );
   }
