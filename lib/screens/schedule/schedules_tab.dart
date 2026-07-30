@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/schedule.dart';
 import '../../repositories/schedule_repository.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 import 'schedule_form_screen.dart';
 
@@ -90,12 +91,36 @@ class _SchedulesTabState extends State<SchedulesTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes créneaux')),
+      appBar: AppBar(
+        titleSpacing: AppSpacing.page,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Mes créneaux',
+                style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 2),
+            Text(
+              'Vos plages de disponibilité pour les patients',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        toolbarHeight: 76,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'add-schedule',
         onPressed: () => _openForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('Ajouter'),
+        elevation: 0,
+        backgroundColor: AppPalette.primary,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        icon: const Icon(Icons.add_rounded),
+        label: Text('Ajouter',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Colors.white,
+                )),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -106,7 +131,7 @@ class _SchedulesTabState extends State<SchedulesTab> {
 
   Widget _buildBody() {
     if (_schedules == null && _loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonList(height: 76);
     }
     if (_schedules == null && _error != null) {
       return ErrorView(error: _error!, onRetry: _load);
@@ -120,8 +145,9 @@ class _SchedulesTabState extends State<SchedulesTab> {
           SizedBox(height: 120),
           EmptyView(
             icon: Icons.event_busy_outlined,
+            title: 'Aucune disponibilité',
             message:
-                'Vous n\'avez pas encore de plage de disponibilité.\nAjoutez-en une pour que les patients puissent réserver.',
+                'Ajoutez une plage horaire pour que les patients puissent réserver une consultation.',
           ),
         ],
       );
@@ -166,6 +192,8 @@ class _SchedulesTabState extends State<SchedulesTab> {
   }
 }
 
+/// Intitulé de groupe, repris du système mais précédé d'une icône qui
+/// distingue les plages hebdomadaires des dates ponctuelles.
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.icon, required this.title});
 
@@ -174,16 +202,15 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: AppSpacing.gap),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: scheme.primary),
-          const SizedBox(width: 8),
+          Icon(icon, size: 15, color: AppPalette.inkFaint),
+          const SizedBox(width: 7),
           Text(
-            title,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            title.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall,
           ),
         ],
       ),
@@ -204,41 +231,50 @@ class _ScheduleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-        title: Text(
-          schedule.dayLabel,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Text(
-            schedule.timeLabel,
-            style: TextStyle(fontSize: 13, color: scheme.primary),
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+    final text = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.gap),
+      child: AppCard(
+        onTap: onEdit,
+        padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, 10, 8, 10),
+        child: Row(
           children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(schedule.dayLabel, style: text.titleSmall),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule_rounded,
+                          size: 14, color: AppPalette.inkFaint),
+                      const SizedBox(width: 5),
+                      Text(
+                        schedule.timeLabel,
+                        style: text.labelMedium
+                            ?.copyWith(color: AppPalette.primary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              color: scheme.primary,
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              color: AppPalette.inkMuted,
               tooltip: 'Modifier les heures',
               onPressed: onEdit,
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline),
-              color: scheme.error,
+              icon: const Icon(Icons.delete_outline, size: 20),
+              color: AppPalette.danger,
               tooltip: 'Supprimer',
               onPressed: onDelete,
             ),
           ],
         ),
-        onTap: onEdit,
       ),
     );
   }

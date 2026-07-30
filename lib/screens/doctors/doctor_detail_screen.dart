@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/doctor.dart';
 import '../../repositories/catalog_repository.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 import '../booking/booking_screen.dart';
 
@@ -31,8 +32,6 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Fiche médecin')),
       body: FutureBuilder<Doctor>(
@@ -50,108 +49,138 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
 
           final doctor = snapshot.data!;
 
+          final text = Theme.of(context).textTheme;
+
           return FadeSlideIn(
               child: Column(
             children: [
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(AppSpacing.page),
                   children: [
                     Row(
                       children: [
                         NetworkImageBox(
                           url: doctor.photoUrl,
-                          width: 96,
-                          height: 96,
-                          borderRadius: BorderRadius.circular(20),
+                          width: 100,
+                          height: 100,
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.card),
                           fallbackIcon: Icons.person,
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: AppSpacing.gutter),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 doctor.fullName,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                style: text.headlineSmall,
                               ),
-                              const SizedBox(height: 4),
-                              if (doctor.specialty != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: scheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    doctor.specialty!.name,
-                                    style: TextStyle(
-                                      color: scheme.onPrimaryContainer,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                              if (doctor.specialty != null) ...[
+                                const SizedBox(height: 8),
+                                // Étiquette alignée à gauche : dans un Column
+                                // étiré, un Container prendrait toute la
+                                // largeur disponible.
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 11, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: AppPalette.primarySoft,
+                                      borderRadius: BorderRadius.circular(
+                                          AppRadius.pill),
+                                    ),
+                                    child: Text(
+                                      doctor.specialty!.name,
+                                      style: text.labelMedium?.copyWith(
+                                        color: AppPalette.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    Card(
-                      color: Colors.white,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Icon(Icons.schedule, color: scheme.primary),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Durée d\'une consultation : ${doctor.appointmentDuration} minutes',
-                                style: const TextStyle(fontSize: 14),
-                              ),
+                    const SizedBox(height: AppSpacing.page),
+                    AppCard(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(
+                              color: AppPalette.primarySoft,
+                              shape: BoxShape.circle,
                             ),
-                          ],
-                        ),
+                            child: const Icon(Icons.schedule_rounded,
+                                size: 19, color: AppPalette.primary),
+                          ),
+                          const SizedBox(width: AppSpacing.gap),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Durée d\'une consultation',
+                                    style: text.bodySmall),
+                                const SizedBox(height: 2),
+                                Text('${doctor.appointmentDuration} minutes',
+                                    style: text.bodyLarge),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    if (doctor.bio != null && doctor.bio!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      Text(
-                        'À propos',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
+                    if (doctor.bio != null &&
+                        doctor.bio!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 28),
+                      const SectionHeader(title: 'À propos'),
                       Text(
                         doctor.bio!,
-                        style: TextStyle(
-                          height: 1.5,
-                          color: Colors.grey.shade800,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          height: 1.65,
+                          color: AppPalette.ink,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => BookingScreen(doctor: doctor),
-                      ),
+              // Barre d'action posée sur un fond blanc ombré : le bouton reste
+              // lisible quel que soit le contenu qui défile dessous.
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppPalette.shadow.withValues(alpha: .12),
+                      blurRadius: 18,
+                      offset: const Offset(0, -4),
                     ),
-                    icon: const Icon(Icons.calendar_month),
-                    label: const Text('Prendre rendez-vous'),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.page, 12,
+                        AppSpacing.page, 12),
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => BookingScreen(doctor: doctor),
+                        ),
+                      ),
+                      icon: const Icon(Icons.calendar_month_rounded, size: 20),
+                      label: const Text('Prendre rendez-vous'),
+                    ),
                   ),
                 ),
               ),

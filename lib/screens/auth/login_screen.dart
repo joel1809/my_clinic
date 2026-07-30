@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
 import '../../state/auth_state.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 import 'register_screen.dart';
 
@@ -71,14 +72,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Logo du site web (assets/images/logo.png)
                     Image.asset(
                       'assets/images/logo.png',
-                      height: 48,
+                      height: 52,
                       fit: BoxFit.contain,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 28),
                     Text(
-                      'Connectez-vous pour prendre rendez-vous',
+                      'Bon retour',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Connectez-vous pour prendre rendez-vous et suivre vos consultations.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 32),
                     TextFormField(
@@ -124,20 +131,36 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
                     FilledButton(
                       onPressed: _loading ? null : _submit,
                       child: _loading
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2.5),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2.5, color: Colors.white),
                             )
                           : const Text('Se connecter'),
                     ),
-                    const SizedBox(height: 16),
-                    TextButton(
+                    const SizedBox(height: AppSpacing.page),
+                    // Séparateur discret avant l'action secondaire : la page
+                    // se lit en deux temps, se connecter puis s'inscrire.
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'ou',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.page),
+                    OutlinedButton(
                       onPressed: _loading
                           ? null
                           : () => Navigator.of(context).push(
@@ -145,8 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   builder: (_) => const RegisterScreen(),
                                 ),
                               ),
-                      child: const Text(
-                          'Pas encore de compte ? Créer un compte'),
+                      child: const Text('Créer un compte'),
                     ),
                   ],
                 ),

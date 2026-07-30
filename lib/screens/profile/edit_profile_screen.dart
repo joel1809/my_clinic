@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
 import '../../state/auth_state.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 
 /// Modification du profil : identité, contact et informations patient.
@@ -165,53 +166,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       validator: (_) => _fieldError('phone'),
                     ),
                     if (_isPatient) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        'Informations patient',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 28),
+                      const SectionHeader(title: 'Informations patient'),
                       SegmentedButton<String>(
+                        style: SegmentedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          selectedBackgroundColor: AppPalette.primarySoft,
+                          selectedForegroundColor: AppPalette.primary,
+                          foregroundColor: AppPalette.inkMuted,
+                          side: const BorderSide(color: AppPalette.border),
+                          textStyle: Theme.of(context).textTheme.labelMedium,
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.field),
+                          ),
+                        ),
+                        showSelectedIcon: false,
                         segments: const [
                           ButtonSegment(
                             value: 'male',
                             label: Text('Homme'),
-                            icon: Icon(Icons.male),
+                            icon: Icon(Icons.male, size: 18),
                           ),
                           ButtonSegment(
                             value: 'female',
                             label: Text('Femme'),
-                            icon: Icon(Icons.female),
+                            icon: Icon(Icons.female, size: 18),
                           ),
                         ],
                         emptySelectionAllowed: true,
                         selected: {?_gender},
-                        onSelectionChanged: (selection) => setState(
-                            () => _gender = selection.firstOrNull),
+                        onSelectionChanged: (selection) =>
+                            setState(() => _gender = selection.firstOrNull),
                       ),
                       const SizedBox(height: 16),
                       InkWell(
                         onTap: _saving ? null : _pickBirthDate,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppRadius.field),
                         child: InputDecorator(
                           decoration: InputDecoration(
                             labelText: 'Date de naissance',
                             prefixIcon: const Icon(Icons.cake_outlined),
                             errorText: _fieldError('birth_date'),
+                            suffixIcon: const Icon(Icons.expand_more_rounded,
+                                size: 20, color: AppPalette.inkFaint),
                           ),
                           child: Text(
                             _birthDate == null
                                 ? 'Choisir une date'
                                 : DateFormat('d MMMM yyyy', 'fr_FR')
                                     .format(_birthDate!),
-                            style: TextStyle(
-                              color: _birthDate == null
-                                  ? Colors.grey.shade600
-                                  : null,
-                            ),
+                            style: _birthDate == null
+                                ? Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: AppPalette.inkFaint)
+                                : Theme.of(context).textTheme.bodyLarge,
                           ),
                         ),
                       ),
@@ -233,7 +243,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               width: 22,
                               height: 22,
                               child:
-                                  CircularProgressIndicator(strokeWidth: 2.5),
+                                  CircularProgressIndicator(
+                                  strokeWidth: 2.5, color: Colors.white),
                             )
                           : const Text('Enregistrer'),
                     ),

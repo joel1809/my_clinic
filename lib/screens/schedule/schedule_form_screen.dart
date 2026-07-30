@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/schedule.dart';
 import '../../repositories/schedule_repository.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 
 /// Libellés français des jours ISO-8601 (1 = lundi … 7 = dimanche).
@@ -147,7 +148,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -155,64 +156,103 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
       ),
       body: FadeSlideIn(
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          // Marge basse augmentée de la zone système : en bord à bord, le
+          // bouton d'enregistrement passerait sous la barre de navigation.
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            AppSpacing.page,
+            AppSpacing.page,
+            AppSpacing.page + MediaQuery.viewPaddingOf(context).bottom,
+          ),
           children: [
             if (_editing)
-              Card(
-                color: Colors.white,
-                child: ListTile(
-                  leading: Icon(
-                    widget.schedule!.isWeekly
-                        ? Icons.event_repeat_outlined
-                        : Icons.event_outlined,
-                    color: scheme.primary,
-                  ),
-                  title: Text(
-                    widget.schedule!.dayLabel,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(widget.schedule!.isWeekly
-                      ? 'Chaque semaine'
-                      : 'Date précise'),
+              AppCard(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: AppPalette.primarySoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        widget.schedule!.isWeekly
+                            ? Icons.event_repeat_outlined
+                            : Icons.event_outlined,
+                        size: 19,
+                        color: AppPalette.primary,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.gap),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.schedule!.dayLabel, style: text.titleSmall),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.schedule!.isWeekly
+                                ? 'Chaque semaine'
+                                : 'Date précise',
+                            style: text.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               )
             else ...[
-              _SectionTitle('Jours concernés'),
-              const SizedBox(height: 8),
+              const SectionHeader(title: 'Jours concernés'),
               SegmentedButton<bool>(
+                style: SegmentedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  selectedBackgroundColor: AppPalette.primarySoft,
+                  selectedForegroundColor: AppPalette.primary,
+                  foregroundColor: AppPalette.inkMuted,
+                  side: const BorderSide(color: AppPalette.border),
+                  textStyle: text.labelMedium,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.field),
+                  ),
+                ),
+                showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(
                     value: true,
                     label: Text('Chaque semaine'),
-                    icon: Icon(Icons.event_repeat_outlined),
+                    icon: Icon(Icons.event_repeat_outlined, size: 18),
                   ),
                   ButtonSegment(
                     value: false,
                     label: Text('Dates précises'),
-                    icon: Icon(Icons.event_outlined),
+                    icon: Icon(Icons.event_outlined, size: 18),
                   ),
                 ],
                 selected: {_weekly},
                 onSelectionChanged: (selection) =>
                     setState(() => _weekly = selection.first),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.gutter),
               if (_weekly)
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
                     for (final entry in kWeekdayLabels.entries)
-                      FilterChip(
-                        label: Text(entry.value),
+                      FilterPill(
+                        label: entry.value,
                         selected: _weekdays.contains(entry.key),
-                        onSelected: (selected) => setState(() => selected
-                            ? _weekdays.add(entry.key)
-                            : _weekdays.remove(entry.key)),
+                        onTap: () => setState(() =>
+                            _weekdays.contains(entry.key)
+                                ? _weekdays.remove(entry.key)
+                                : _weekdays.add(entry.key)),
                       ),
                   ],
                 )
-              else ...[
+              else
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -222,57 +262,49 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                         label: Text(toBeginningOfSentenceCase(
                             DateFormat('EEE d MMM yyyy', 'fr_FR')
                                 .format(date))!),
+                        deleteIcon: const Icon(Icons.close_rounded, size: 16),
                         onDeleted: () => setState(() => _dates.remove(date)),
                       ),
                     ActionChip(
-                      avatar: Icon(Icons.add, size: 18, color: scheme.primary),
+                      avatar: const Icon(Icons.add_rounded,
+                          size: 17, color: AppPalette.primary),
                       label: const Text('Ajouter une date'),
+                      labelStyle: text.labelMedium
+                          ?.copyWith(color: AppPalette.primary),
                       onPressed: _pickDate,
                     ),
                   ],
                 ),
-              ],
             ],
-            const SizedBox(height: 20),
-            _SectionTitle('Horaires'),
-            const SizedBox(height: 8),
-            Card(
-              color: Colors.white,
+            const SizedBox(height: 28),
+            const SectionHeader(title: 'Horaires'),
+            AppCard(
+              padding: EdgeInsets.zero,
               child: Column(
                 children: [
-                  ListTile(
-                    leading: Icon(Icons.schedule_outlined, color: scheme.primary),
-                    title: const Text('Heure de début'),
-                    trailing: Text(
-                      _formatTime(_start).replaceAll(':', 'h'),
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
+                  _TimeRow(
+                    label: 'Heure de début',
+                    value: _formatTime(_start).replaceAll(':', 'h'),
                     onTap: () => _pickTime(start: true),
                   ),
-                  const Divider(height: 1, indent: 56),
-                  ListTile(
-                    leading: Icon(Icons.schedule, color: scheme.primary),
-                    title: const Text('Heure de fin'),
-                    trailing: Text(
-                      _formatTime(_end).replaceAll(':', 'h'),
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
+                  const Divider(height: 1, indent: AppSpacing.gutter,
+                      endIndent: AppSpacing.gutter),
+                  _TimeRow(
+                    label: 'Heure de fin',
+                    value: _formatTime(_end).replaceAll(':', 'h'),
                     onTap: () => _pickTime(start: false),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.gap),
             Text(
               'Les créneaux proposés aux patients sont découpés dans ces plages '
               'selon votre durée de consultation.',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: text.bodySmall,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             FilledButton.icon(
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
               onPressed: _saving ? null : _save,
               icon: _saving
                   ? const SizedBox(
@@ -281,7 +313,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.check),
+                  : const Icon(Icons.check_rounded, size: 20),
               label: Text(_editing ? 'Enregistrer' : 'Ajouter'),
             ),
           ],
@@ -291,16 +323,43 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title);
+/// Ligne « libellé / heure » ouvrant le sélecteur d'heure.
+class _TimeRow extends StatelessWidget {
+  const _TimeRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
 
-  final String title;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+    final text = Theme.of(context).textTheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.gutter, vertical: 16),
+        child: Row(
+          children: [
+            const Icon(Icons.schedule_rounded,
+                size: 20, color: AppPalette.inkFaint),
+            const SizedBox(width: AppSpacing.gutter),
+            Expanded(child: Text(label, style: text.bodyLarge)),
+            Text(
+              value,
+              style: text.titleMedium?.copyWith(color: AppPalette.primary),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.expand_more_rounded,
+                size: 18, color: AppPalette.inkFaint),
+          ],
+        ),
+      ),
     );
   }
 }

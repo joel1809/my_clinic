@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:pdfx/pdfx.dart';
 
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 
 /// Lecteur PDF intégré : télécharge le document via son URL signée puis
@@ -64,13 +65,27 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Fond sombre : les pages blanches du PDF se détachent, comme dans les
+      // lecteurs de documents habituels.
+      backgroundColor: AppPalette.ink,
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(fontSize: 16)),
+        backgroundColor: AppPalette.ink,
+        foregroundColor: Colors.white,
+        title: Text(
+          widget.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(color: Colors.white),
+        ),
       ),
       body: _error != null
           ? ErrorView(error: _error!, onRetry: _load)
           : _controller == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white))
               : PdfViewPinch(controller: _controller!),
     );
   }

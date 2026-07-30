@@ -136,7 +136,18 @@ class _ActionDialog extends StatelessWidget {
         ),
         child: Icon(icon, color: color, size: 28),
       ),
-      title: Text(title, textAlign: TextAlign.center),
+      // Le titre garde tous ses mots sur une seule ligne : s'il manque de
+      // place (écran étroit, texte système agrandi), il est réduit plutôt que
+      // coupé en deux.
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          softWrap: false,
+        ),
+      ),
       content: Text(
         message,
         textAlign: TextAlign.center,

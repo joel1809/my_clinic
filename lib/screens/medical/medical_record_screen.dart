@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/app_config.dart';
 import '../../models/medical_record.dart';
 import '../../repositories/medical_record_repository.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 import 'document_viewer_screen.dart';
 
@@ -56,7 +57,16 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
   /// les PDF dans le lecteur intégré. Les autres formats (rares) s'ouvrent
   /// dans le navigateur via l'URL signée.
   Future<void> _openDocument(MedicalDocumentItem document) async {
-    final url = '${AppConfig.baseUrl}${document.fileUrl}';
+    // L'adresse vient de l'API : on refuse tout ce qui sortirait du backend
+    // plutôt que de l'ouvrir aveuglément.
+    final uri = AppConfig.mediaUri(document.fileUrl);
+    if (uri == null) {
+      if (mounted) {
+        showError(context, 'Ce document a une adresse inattendue.');
+      }
+      return;
+    }
+    final url = uri.toString();
 
     if (document.isImage) {
       await showDialog<void>(
@@ -112,7 +122,7 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
     }
 
     final launched = await launchUrl(
-      Uri.parse(url),
+      uri,
       mode: LaunchMode.externalApplication,
     );
     if (!launched && mounted) {
@@ -132,21 +142,24 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Dossier médical', style: TextStyle(fontSize: 17)),
-            if (widget.patientName != null)
+            Text('Dossier médical',
+                style: Theme.of(context).textTheme.titleLarge),
+            if (widget.patientName != null) ...[
+              const SizedBox(height: 2),
               Text(
                 widget.patientName!,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
+            ],
           ],
         ),
-        toolbarHeight: 64,
+        toolbarHeight: 70,
       ),
       body: FutureBuilder<PatientRecord>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const SkeletonList(height: 120);
           }
           if (snapshot.hasError) {
             return ErrorView(
@@ -159,38 +172,34 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
 
           return FadeSlideIn(
               child: ListView(
-            padding: const EdgeInsets.all(16),
+            // Marge basse augmentée de la zone système : en bord à bord, le
+            // dernier document passerait sous la barre de navigation.
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              AppSpacing.page,
+              AppSpacing.page,
+              AppSpacing.page + MediaQuery.viewPaddingOf(context).bottom,
+            ),
             children: [
               _PatientCard(patient: record.patient),
-              const SizedBox(height: 16),
-              _SectionTitle('Fiche médicale'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 28),
+              const SectionHeader(title: 'Fiche médicale'),
               if (record.record == null)
-                const Card(
-                  color: Colors.white,
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text(
-                        'Aucune fiche médicale renseignée pour ce patient.'),
-                  ),
+                const _PlaceholderCard(
+                  message: 'Aucune fiche médicale renseignée pour ce patient.',
                 )
               else
                 _RecordCard(record: record.record!),
-              const SizedBox(height: 16),
-              _SectionTitle('Documents (${record.documents.length})'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 28),
+              SectionHeader(title: 'Documents (${record.documents.length})'),
               if (record.documents.isEmpty)
-                const Card(
-                  color: Colors.white,
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('Aucun document dans ce dossier.'),
-                  ),
+                const _PlaceholderCard(
+                  message: 'Aucun document dans ce dossier.',
                 )
               else
                 for (final document in record.documents)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.gap),
                     child: _DocumentCard(
                       document: document,
                       onOpen: () => _openDocument(document),
@@ -204,19 +213,25 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title);
+/// Carte de remplacement quand une section du dossier est vide.
+class _PlaceholderCard extends StatelessWidget {
+  const _PlaceholderCard({required this.message});
 
-  final String title;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(context)
-          .textTheme
-          .titleMedium
-          ?.copyWith(fontWeight: FontWeight.bold),
+    return AppCard(
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded,
+              size: 19, color: AppPalette.inkFaint),
+          const SizedBox(width: AppSpacing.gap),
+          Expanded(
+            child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -228,7 +243,7 @@ class _PatientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
     String? birthDateLabel;
     if (patient.birthDate != null) {
@@ -238,51 +253,43 @@ class _PatientCard extends StatelessWidget {
       }
     }
 
-    return Card(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: scheme.primaryContainer,
-              child: Text(
-                (patient.name?.trim().isNotEmpty ?? false)
-                    ? patient.name!.trim()[0].toUpperCase()
-                    : '?',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: scheme.primary,
+    return AppCard(
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppPalette.primarySoft,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              (patient.name?.trim().isNotEmpty ?? false)
+                  ? patient.name!.trim()[0].toUpperCase()
+                  : '?',
+              style: text.headlineSmall?.copyWith(color: AppPalette.primary),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.gutter),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(patient.name ?? 'Patient', style: text.titleMedium),
+                const SizedBox(height: 3),
+                Text(
+                  [
+                    patient.genderLabel,
+                    if (birthDateLabel != null) 'né(e) le $birthDateLabel',
+                    if (patient.phone != null) patient.phone!,
+                  ].join(' · '),
+                  style: text.bodySmall,
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    patient.name ?? 'Patient',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    [
-                      patient.genderLabel,
-                      if (birthDateLabel != null) 'né(e) le $birthDateLabel',
-                      if (patient.phone != null) patient.phone!,
-                    ].join(' · '),
-                    style: TextStyle(
-                        fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -295,12 +302,11 @@ class _RecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.gutter, vertical: 6),
+      child: Column(
+        children: [
             _RecordRow(
               icon: Icons.bloodtype_outlined,
               label: 'Groupe sanguin',
@@ -326,8 +332,7 @@ class _RecordCard extends StatelessWidget {
               label: 'Notes',
               value: record.notes,
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -346,27 +351,29 @@ class _RecordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final filled = value?.trim().isNotEmpty ?? false;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
+          Icon(icon, size: 19, color: AppPalette.inkFaint),
+          const SizedBox(width: AppSpacing.gap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize: 12, color: Colors.grey.shade600)),
+                Text(label, style: text.bodySmall),
                 const SizedBox(height: 2),
                 Text(
-                  (value?.trim().isNotEmpty ?? false)
-                      ? value!.trim()
-                      : 'Non renseigné',
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w500),
+                  filled ? value!.trim() : 'Non renseigné',
+                  // Une valeur absente reste lisible mais s'efface : l'œil va
+                  // d'abord aux informations réellement remplies.
+                  style: filled
+                      ? text.bodyLarge
+                      : text.bodyLarge?.copyWith(color: AppPalette.inkFaint),
                 ),
               ],
             ),
@@ -392,7 +399,7 @@ class _DocumentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
     String? issuedLabel;
     if (document.issuedAt != null) {
@@ -402,32 +409,49 @@ class _DocumentCard extends StatelessWidget {
       }
     }
 
-    return Card(
-      color: Colors.white,
-      child: ListTile(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        leading: CircleAvatar(
-          backgroundColor: scheme.primaryContainer,
-          child: Icon(_icon, color: scheme.primary, size: 22),
-        ),
-        title: Text(
-          document.title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-        subtitle: Text(
-          [document.typeLabel, ?issuedLabel].join(' · '),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        trailing: Icon(
-          document.isImage || document.isPdf
-              ? Icons.visibility_outlined
-              : Icons.open_in_new,
-          size: 20,
-          color: Colors.grey.shade500,
-        ),
-        onTap: onOpen,
+    return AppCard(
+      onTap: onOpen,
+      padding: const EdgeInsets.all(AppSpacing.gap),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppPalette.primarySoft,
+              borderRadius: BorderRadius.circular(AppRadius.control),
+            ),
+            child: Icon(_icon, color: AppPalette.primary, size: 21),
+          ),
+          const SizedBox(width: AppSpacing.gap),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  document.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.titleSmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [document.typeLabel, ?issuedLabel].join(' · '),
+                  style: text.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Icon(
+            document.isImage || document.isPdf
+                ? Icons.visibility_outlined
+                : Icons.open_in_new_rounded,
+            size: 19,
+            color: AppPalette.inkFaint,
+          ),
+        ],
       ),
     );
   }

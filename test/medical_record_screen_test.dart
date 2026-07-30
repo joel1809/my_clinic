@@ -36,13 +36,18 @@ void main() {
     // Identité + synthèse clinique.
     expect(find.text('Dossier médical'), findsOneWidget);
     expect(find.text('Awa Diomandé'), findsWidgets);
-    expect(find.text('Fiche médicale'), findsOneWidget);
+    // Les intitulés de section sont rendus en capitales par SectionHeader.
+    expect(find.text('FICHE MÉDICALE'), findsOneWidget);
     expect(find.text('Groupe sanguin'), findsOneWidget);
     expect(find.text('O+'), findsOneWidget);
     expect(find.text('Pénicilline (éruption cutanée)'), findsOneWidget);
 
-    // Documents.
-    expect(find.text('Documents (1)'), findsOneWidget);
+    // Documents : la section est plus bas que la hauteur du viewport de test,
+    // il faut faire défiler pour l'atteindre.
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('DOCUMENTS (1)'), findsOneWidget);
     expect(find.text('Ordonnance — traitement antipaludéen'), findsOneWidget);
 
     // Aucun état « vide » pour ce patient.
@@ -72,7 +77,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Aucune fiche médicale'), findsOneWidget);
-    expect(find.text('Documents (0)'), findsOneWidget);
+    expect(find.text('DOCUMENTS (0)'), findsOneWidget);
     expect(find.textContaining('Aucun document'), findsOneWidget);
   });
 }

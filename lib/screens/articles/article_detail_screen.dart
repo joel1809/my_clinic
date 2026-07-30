@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/article.dart';
 import '../../repositories/article_repository.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 
 /// Fiche détaillée d'un article (contenu complet + galerie).
@@ -31,15 +32,13 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Article')),
       body: FutureBuilder<Article>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const _ArticleSkeleton();
           }
           if (snapshot.hasError) {
             return ErrorView(
@@ -61,81 +60,86 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 fallbackIcon: Icons.article_outlined,
               ),
               Padding(
-                padding: const EdgeInsets.all(20),
+                // L'affichage bord à bord fait passer la fin de l'article sous
+                // la barre de navigation du téléphone : on lui rend la hauteur
+                // de la zone système.
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.page,
+                  AppSpacing.page,
+                  AppSpacing.page,
+                  AppSpacing.page + MediaQuery.viewPaddingOf(context).bottom,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        if (article.category != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: scheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              article.category!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: scheme.onPrimaryContainer,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
+                    if (article.category != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 11, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppPalette.primarySoft,
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
+                        child: Text(
+                          article.category!,
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                  color: AppPalette.primary, letterSpacing: .4),
+                        ),
+                      ),
+                    const SizedBox(height: 14),
                     Text(
                       article.title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(
-                              fontWeight: FontWeight.bold, height: 1.3),
+                      style: Theme.of(context).textTheme.displaySmall,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.gap),
                     Row(
                       children: [
-                        Icon(Icons.person_outline,
-                            size: 16, color: Colors.grey.shade600),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.person_outline,
+                            size: 15, color: AppPalette.inkFaint),
+                        const SizedBox(width: 5),
                         Text(
                           article.author ?? 'La clinique',
-                          style: TextStyle(
-                              fontSize: 13, color: Colors.grey.shade600),
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        const SizedBox(width: 16),
                         if (article.publishedAt != null) ...[
-                          Icon(Icons.calendar_today_outlined,
-                              size: 14, color: Colors.grey.shade600),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 14),
+                          const Icon(Icons.calendar_today_outlined,
+                              size: 13, color: AppPalette.inkFaint),
+                          const SizedBox(width: 5),
                           Text(
                             DateFormat('d MMMM yyyy', 'fr_FR')
                                 .format(article.publishedAt!),
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade600),
+                            style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
                       ],
                     ),
-                    const Divider(height: 32),
+                    const Divider(height: 36),
+                    // Corps de l'article : interligne large et taille légèrement
+                    // supérieure au reste de l'app, c'est du texte à lire en
+                    // continu et non à balayer.
                     Text(
                       article.plainBody,
-                      style: const TextStyle(fontSize: 15, height: 1.65),
+                      style: const TextStyle(
+                        fontSize: 15.5,
+                        height: 1.7,
+                        color: AppPalette.ink,
+                      ),
                     ),
                     if (article.detailImageUrls.isNotEmpty) ...[
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
                       for (final url in article.detailImageUrls)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.only(bottom: AppSpacing.gap),
                           child: NetworkImageBox(
                             url: url,
                             height: 200,
                             width: double.infinity,
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.card),
                           ),
                         ),
                     ],
@@ -146,6 +150,40 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           ));
         },
       ),
+    );
+  }
+}
+
+/// Squelette de l'article pendant le chargement : bandeau, titre sur deux
+/// lignes puis lignes de texte, dans les proportions du contenu réel.
+class _ArticleSkeleton extends StatelessWidget {
+  const _ArticleSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        const SkeletonBox(height: 220, radius: 0),
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.page),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SkeletonBox(width: 90, height: 22, radius: AppRadius.pill),
+              const SizedBox(height: 14),
+              const SkeletonBox(height: 28),
+              const SizedBox(height: 8),
+              const SkeletonBox(width: 220, height: 28),
+              const SizedBox(height: 28),
+              for (var i = 0; i < 8; i++) ...[
+                SkeletonBox(height: 13, width: i.isEven ? null : 260),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

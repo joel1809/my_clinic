@@ -34,6 +34,29 @@ class AppConfig {
   /// Racine de l'API v1.
   static String get apiUrl => '$baseUrl/api/v1';
 
+  /// Construit l'adresse d'un fichier servi par le backend, et refuse tout ce
+  /// qui pointerait ailleurs.
+  ///
+  /// Le chemin provient de l'API. Sans cette vérification, une réponse forgée
+  /// ou un backend compromis pourrait faire ouvrir à l'utilisateur une adresse
+  /// choisie par l'attaquant — voire, avec un schéma comme `intent://` ou
+  /// `file://`, déclencher autre chose qu'une page web.
+  ///
+  /// Renvoie `null` si l'adresse obtenue sort de l'hôte du backend.
+  static Uri? mediaUri(String path) {
+    final base = Uri.parse(baseUrl);
+    // `resolve` accepte un chemin relatif comme une URL absolue ; dans le
+    // second cas l'hôte change, et la comparaison ci-dessous le rejette.
+    final uri = base.resolve(path);
+
+    if (uri.scheme != base.scheme ||
+        uri.host != base.host ||
+        uri.port != base.port) {
+      return null;
+    }
+    return uri;
+  }
+
   /// Les images renvoyées par l'API pointent vers APP_URL du backend
   /// (localhost) : on les réécrit vers l'hôte joignable depuis l'appareil.
   static String resolveMediaUrl(String url) {

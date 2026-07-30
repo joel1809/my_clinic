@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_exception.dart';
 import '../../state/auth_state.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 
 /// Inscription d'un nouveau patient.
@@ -103,6 +104,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Text(
+                      'Vos informations',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Elles nous servent à constituer votre dossier et à vous identifier lors des consultations.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 28),
                     TextFormField(
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
@@ -141,20 +152,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
                     // Sexe
-                    Text('Sexe',
-                        style: Theme.of(context).textTheme.labelLarge),
+                    Text('Sexe', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 8),
                     SegmentedButton<String>(
+                      style: SegmentedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        selectedBackgroundColor: AppPalette.primarySoft,
+                        selectedForegroundColor: AppPalette.primary,
+                        foregroundColor: AppPalette.inkMuted,
+                        side: const BorderSide(color: AppPalette.border),
+                        textStyle: Theme.of(context).textTheme.labelMedium,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.field),
+                        ),
+                      ),
+                      showSelectedIcon: false,
                       segments: const [
                         ButtonSegment(
                           value: 'male',
                           label: Text('Homme'),
-                          icon: Icon(Icons.male),
+                          icon: Icon(Icons.male, size: 18),
                         ),
                         ButtonSegment(
                           value: 'female',
                           label: Text('Femme'),
-                          icon: Icon(Icons.female),
+                          icon: Icon(Icons.female, size: 18),
                         ),
                       ],
                       selected: {_gender},
@@ -165,23 +187,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     // Date de naissance
                     InkWell(
                       onTap: _loading ? null : _pickBirthDate,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppRadius.field),
                       child: InputDecorator(
                         decoration: InputDecoration(
                           labelText: 'Date de naissance',
                           prefixIcon: const Icon(Icons.cake_outlined),
                           errorText: _fieldError('birth_date'),
+                          suffixIcon: const Icon(Icons.expand_more_rounded,
+                              size: 20, color: AppPalette.inkFaint),
                         ),
                         child: Text(
                           _birthDate == null
                               ? 'Choisir une date'
                               : DateFormat('d MMMM yyyy', 'fr_FR')
                                   .format(_birthDate!),
-                          style: TextStyle(
-                            color: _birthDate == null
-                                ? Colors.grey.shade600
-                                : null,
-                          ),
+                          style: _birthDate == null
+                              ? Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: AppPalette.inkFaint)
+                              : Theme.of(context).textTheme.bodyLarge,
                         ),
                       ),
                     ),
@@ -245,7 +270,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: 22,
                               height: 22,
                               child:
-                                  CircularProgressIndicator(strokeWidth: 2.5),
+                                  CircularProgressIndicator(
+                                  strokeWidth: 2.5, color: Colors.white),
                             )
                           : const Text('Créer mon compte'),
                     ),
