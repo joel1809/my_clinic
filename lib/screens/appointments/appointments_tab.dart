@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/appointment.dart';
 import '../../repositories/appointment_repository.dart';
 import '../../state/auth_state.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 import 'appointment_actions.dart';
 import 'appointment_detail_screen.dart';
@@ -19,11 +20,11 @@ enum _Filter {
   final String label;
 
   bool matches(Appointment appointment) => switch (this) {
-        // Le serveur calcule `is_confirmable` : en attente et pas encore passé
-        _Filter.toConfirm => appointment.isConfirmable,
-        _Filter.upcoming => appointment.isUpcoming,
-        _Filter.history => !appointment.isUpcoming,
-      };
+    // Le serveur calcule `is_confirmable` : en attente et pas encore passé
+    _Filter.toConfirm => appointment.isConfirmable,
+    _Filter.upcoming => appointment.isUpcoming,
+    _Filter.history => !appointment.isUpcoming,
+  };
 }
 
 /// Liste paginée des rendez-vous.
@@ -38,14 +39,6 @@ class AppointmentsTab extends StatefulWidget {
 }
 
 class _AppointmentsTabState extends State<AppointmentsTab> {
-  /// Nombre de rendez-vous visibles en dessous duquel on charge
-  /// automatiquement la page suivante (le filtre peut en masquer beaucoup).
-  static const _minVisible = 8;
-
-  /// Pages chargées automatiquement au maximum pour remplir un filtre, afin de
-  /// ne pas parcourir tout l'historique d'un médecin sans action de sa part.
-  static const _maxAutoFill = 4;
-
   final _scrollController = ScrollController();
   final List<Appointment> _appointments = [];
 
@@ -53,15 +46,18 @@ class _AppointmentsTabState extends State<AppointmentsTab> {
   bool _loading = false;
   bool _initialLoaded = false;
   Object? _error;
-  int _page = 0;
-  bool _hasMore = true;
-  int _autoFilled = 0;
+
+  /// Page affichée et nombre total de pages (pagination numérotée).
+  int _page = 1;
+  int _lastPage = 1;
+
+  /// Dernière page demandée, pour la retenter après une erreur réseau.
+  int _requestedPage = 1;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    _loadMore();
+    _loadPage(1);
   }
 
   @override
@@ -73,67 +69,41 @@ class _AppointmentsTabState extends State<AppointmentsTab> {
   List<Appointment> get _visible =>
       _appointments.where(_filter.matches).toList();
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >
-        _scrollController.position.maxScrollExtent - 300) {
-      _autoFilled = 0; // défilement manuel : on autorise à nouveau le remplissage
-      _loadMore();
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || !_hasMore) return;
+  /// Charge une page et remplace la liste affichée par son contenu.
+  Future<void> _loadPage(int page) async {
+    if (_loading) return;
+    _requestedPage = page;
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final page =
-          await context.read<AppointmentRepository>().list(page: _page + 1);
+      final result =
+          await context.read<AppointmentRepository>().list(page: page);
       if (!mounted) return;
       setState(() {
-        _appointments.addAll(page.items);
-        _page = page.currentPage;
-        _hasMore = page.hasMore;
+        _appointments
+          ..clear()
+          ..addAll(result.items);
+        _page = result.currentPage;
+        _lastPage = result.lastPage;
         _initialLoaded = true;
       });
+      // Nouvelle page : la lecture reprend en haut de la liste
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
     } catch (e) {
       if (mounted) setState(() => _error = e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-
-    // Le filtre actif peut ne laisser passer qu'une poignée de rendez-vous :
-    // on enchaîne sur la page suivante jusqu'à remplir l'écran.
-    if (mounted &&
-        _error == null &&
-        _hasMore &&
-        _autoFilled < _maxAutoFill &&
-        _visible.length < _minVisible) {
-      _autoFilled++;
-      await _loadMore();
-    }
   }
 
-  Future<void> _refresh() async {
-    setState(() {
-      _appointments.clear();
-      _page = 0;
-      _hasMore = true;
-      _autoFilled = 0;
-      _initialLoaded = false;
-    });
-    await _loadMore();
-  }
+  Future<void> _refresh() => _loadPage(_page);
 
   void _selectFilter(_Filter filter) {
     if (filter == _filter) return;
-    setState(() {
-      _filter = filter;
-      _autoFilled = 0;
-    });
-    _loadMore();
+    setState(() => _filter = filter);
   }
 
   /// Remplace un rendez-vous par sa version mise à jour (après confirmation
@@ -153,49 +123,54 @@ class _AppointmentsTabState extends State<AppointmentsTab> {
 
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: AppSpacing.page,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               isStaff ? 'Rendez-vous des patients' : 'Mes rendez-vous',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
+            const SizedBox(height: 2),
             Text(
               isStaff
                   ? 'Confirmez ou annulez les demandes reçues'
                   : 'Suivez vos consultations à venir',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
-        toolbarHeight: 68,
+        toolbarHeight: 76,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: _FilterBar(
             filters: filters,
             selected: _filter,
-            // Le décompte n'est fiable qu'une fois toutes les pages chargées
-            badgeCount: !_hasMore
+            // Le décompte n'est fiable que si tout tient sur une seule page
+            badgeCount: _lastPage == 1
                 ? _appointments.where(_Filter.toConfirm.matches).length
                 : null,
             onSelected: _selectFilter,
           ),
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: _buildBody(isStaff),
-      ),
+      body: RefreshIndicator(onRefresh: _refresh, child: _buildBody(isStaff)),
     );
   }
 
   Widget _buildBody(bool isStaff) {
-    if (!_initialLoaded && _loading) {
-      return const Center(child: CircularProgressIndicator());
+    // Le squelette couvre le premier chargement comme les changements de
+    // page : la liste affichée est remplacée dans les deux cas.
+    if (_loading) {
+      return const SkeletonList(height: 128);
     }
-    if (!_initialLoaded && _error != null) {
-      return ErrorView(error: _error!, onRetry: _loadMore);
+    if (_error != null) {
+      return ErrorView(
+        error: _error!,
+        onRetry: () => _loadPage(_requestedPage),
+      );
     }
+    if (!_initialLoaded) return const SizedBox.shrink();
 
     final appointments = _visible;
     if (appointments.isEmpty) {
@@ -209,25 +184,31 @@ class _AppointmentsTabState extends State<AppointmentsTab> {
               _Filter.upcoming => Icons.event_available_outlined,
               _Filter.history => Icons.history_rounded,
             },
+            title: switch (_filter) {
+              _Filter.toConfirm => 'Tout est à jour',
+              _Filter.upcoming => 'Aucun rendez-vous à venir',
+              _Filter.history => 'Historique vide',
+            },
             message: switch (_filter) {
-              _Filter.toConfirm => 'Aucune demande en attente.\nTout est à jour !',
-              _Filter.upcoming => isStaff
-                  ? 'Aucun rendez-vous à venir pour le moment.'
-                  : 'Vous n\'avez pas de rendez-vous à venir.\nPrenez-en un depuis l\'accueil !',
+              _Filter.toConfirm =>
+                'Aucune demande de rendez-vous n\'attend votre confirmation.',
+              _Filter.upcoming =>
+                isStaff
+                    ? 'Aucune consultation n\'est programmée pour le moment.'
+                    : 'Prenez rendez-vous depuis l\'accueil pour retrouver votre consultation ici.',
               _Filter.history => 'Aucun rendez-vous passé ou annulé.',
             },
           ),
-          if (_hasMore)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextButton.icon(
-                  onPressed: _loading ? null : _loadMore,
-                  icon: const Icon(Icons.expand_more),
-                  label: const Text('Charger plus de rendez-vous'),
-                ),
-              ),
+          // D'autres pages peuvent contenir des rendez-vous que le filtre
+          // ne trouve pas sur celle-ci : la navigation reste disponible.
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.page),
+            child: PaginationBar(
+              currentPage: _page,
+              lastPage: _lastPage,
+              onPageSelected: _loadPage,
             ),
+          ),
         ],
       );
     }
@@ -236,14 +217,17 @@ class _AppointmentsTabState extends State<AppointmentsTab> {
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      itemCount: appointments.length + (_hasMore ? 1 : 0),
+      itemCount: appointments.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        // Barre de pages en pied de liste
         if (index >= appointments.length) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
+          return Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.gap),
+            child: PaginationBar(
+              currentPage: _page,
+              lastPage: _lastPage,
+              onPageSelected: _loadPage,
             ),
           );
         }
@@ -277,13 +261,16 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return SizedBox(
       height: 56,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          4,
+          AppSpacing.page,
+          12,
+        ),
         itemCount: filters.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
@@ -291,49 +278,34 @@ class _FilterBar extends StatelessWidget {
           final isSelected = filter == selected;
           final count = filter == _Filter.toConfirm ? badgeCount : null;
 
-          return ChoiceChip(
+          return FilterPill(
+            label: filter.label,
             selected: isSelected,
-            showCheckmark: false,
-            backgroundColor: Colors.white,
-            selectedColor: scheme.primary,
-            side: BorderSide(
-              color: isSelected ? scheme.primary : Colors.grey.shade300,
-            ),
-            labelStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? scheme.onPrimary : Colors.grey.shade700,
-            ),
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(filter.label),
-                if (count != null && count > 0) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            onTap: () => onSelected(filter),
+            // Compteur des demandes en attente, réservé au filtre « À
+            // confirmer » et masqué tant qu'il vaut zéro.
+            trailing: count != null && count > 0
+                ? Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? scheme.onPrimary.withValues(alpha: .25)
-                          : Colors.orange.withValues(alpha: .18),
-                      borderRadius: BorderRadius.circular(10),
+                          ? Colors.white.withValues(alpha: .25)
+                          : AppPalette.warning.withValues(alpha: .15),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                     child: Text(
                       '$count',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? scheme.onPrimary
-                            : Colors.orange.shade900,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? Colors.white : AppPalette.warning,
                       ),
                     ),
-                  ),
-                ],
-              ],
-            ),
-            onSelected: (_) => onSelected(filter),
+                  )
+                : null,
           );
         },
       ),
@@ -396,157 +368,189 @@ class _AppointmentCardState extends State<AppointmentCard> {
     final canConfirm = isStaff && appointment.isConfirmable;
     final canCancel = appointment.isCancellable;
 
-    return Card(
-      color: Colors.white,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () async {
-          final changed = await Navigator.of(context).push<bool>(
-            MaterialPageRoute(
-              builder: (_) =>
-                  AppointmentDetailScreen(appointmentId: appointment.id),
+    final text = Theme.of(context).textTheme;
+
+    return AppCard(
+      padding: EdgeInsets.zero,
+      onTap: () async {
+        final changed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) =>
+                AppointmentDetailScreen(appointmentId: appointment.id),
+          ),
+        );
+        if (changed == true) await widget.onOpened();
+      },
+      child: Stack(
+        children: [
+          // Liseré vertical à la couleur du statut : l'état du rendez-vous se
+          // lit d'un coup d'œil en balayant la liste. Positionné plutôt
+          // qu'étiré, pour ne pas imposer de hauteur au contenu de la carte.
+          Positioned(
+            left: 0,
+            top: AppSpacing.gutter,
+            bottom: AppSpacing.gutter,
+            child: Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
             ),
-          );
-          if (changed == true) await widget.onOpened();
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DateBadge(date: appointment.date, color: statusColor),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 15),
-                        ),
-                        if (subtitle != null && subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 2),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.gutter + 6,
+              AppSpacing.gutter,
+              AppSpacing.gutter,
+              AppSpacing.gutter,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DateBadge(date: appointment.date, color: statusColor),
+                    const SizedBox(width: AppSpacing.gap),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            subtitle,
+                            title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                            style: text.titleSmall,
                           ),
-                        ],
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Icon(Icons.schedule_rounded,
-                                size: 15, color: Colors.grey.shade600),
-                            const SizedBox(width: 5),
+                          if (subtitle != null && subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 3),
                             Text(
-                              appointment.timeRangeLabel,
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.grey.shade700),
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: text.labelMedium?.copyWith(
+                                color: AppPalette.primary,
+                              ),
                             ),
                           ],
-                        ),
-                      ],
+                          const SizedBox(height: 7),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.schedule_rounded,
+                                size: 14,
+                                color: AppPalette.inkFaint,
+                              ),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  appointment.timeRangeLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: text.bodySmall,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  StatusPill(appointment: appointment),
-                ],
-              ),
-              if (appointment.reason.trim().isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    appointment.reason,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 12.5, color: Colors.grey.shade800),
-                  ),
-                ),
-              ],
-              if (canConfirm || canCancel) ...[
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    if (canCancel)
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 42),
-                            foregroundColor:
-                                Theme.of(context).colorScheme.error,
-                            side: BorderSide(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .error
-                                    .withValues(alpha: .5)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _busy
-                              ? null
-                              : () => _run(() => cancelAppointment(
-                                    context,
-                                    appointment,
-                                    asStaff: isStaff,
-                                    onBusy: _setBusy,
-                                  )),
-                          icon: const Icon(Icons.close_rounded, size: 18),
-                          label: const Text('Annuler'),
-                        ),
-                      ),
-                    if (canConfirm && canCancel) const SizedBox(width: 10),
-                    if (canConfirm)
-                      Expanded(
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(0, 42),
-                            backgroundColor: Colors.green.shade600,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            textStyle: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w600),
-                          ),
-                          onPressed: _busy
-                              ? null
-                              : () => _run(() => confirmAppointment(
-                                  context, appointment, onBusy: _setBusy)),
-                          icon: _busy
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.check_rounded, size: 18),
-                          label: const Text('Confirmer'),
-                        ),
-                      ),
+                    const SizedBox(width: 8),
+                    StatusPill(appointment: appointment),
                   ],
                 ),
+                if (appointment.reason.trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.gap),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppPalette.canvas,
+                      borderRadius: BorderRadius.circular(AppRadius.control),
+                    ),
+                    child: Text(
+                      appointment.reason,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.bodySmall,
+                    ),
+                  ),
+                ],
+                if (canConfirm || canCancel) ...[
+                  const SizedBox(height: AppSpacing.gap),
+                  Row(
+                    children: [
+                      if (canCancel)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              foregroundColor: AppPalette.danger,
+                              side: BorderSide(
+                                color: AppPalette.danger.withValues(alpha: .35),
+                              ),
+                              textStyle: text.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            onPressed: _busy
+                                ? null
+                                : () => _run(
+                                    () => cancelAppointment(
+                                      context,
+                                      appointment,
+                                      asStaff: isStaff,
+                                      onBusy: _setBusy,
+                                    ),
+                                  ),
+                            icon: const Icon(Icons.close_rounded, size: 17),
+                            label: const Text('Annuler'),
+                          ),
+                        ),
+                      if (canConfirm && canCancel) const SizedBox(width: 10),
+                      if (canConfirm)
+                        Expanded(
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              backgroundColor: AppPalette.success,
+                              textStyle: text.labelMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            onPressed: _busy
+                                ? null
+                                : () => _run(
+                                    () => confirmAppointment(
+                                      context,
+                                      appointment,
+                                      onBusy: _setBusy,
+                                    ),
+                                  ),
+                            icon: _busy
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.check_rounded, size: 17),
+                            label: const Text('Confirmer'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -564,11 +568,11 @@ class DateBadge extends StatelessWidget {
     final date = this.date;
 
     return Container(
-      width: 52,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      width: 54,
+      padding: const EdgeInsets.symmetric(vertical: 9),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.control),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -576,9 +580,10 @@ class DateBadge extends StatelessWidget {
           Text(
             date != null ? '${date.day}' : '—',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 21,
               height: 1.1,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -.5,
               color: color,
             ),
           ),
@@ -587,6 +592,7 @@ class DateBadge extends StatelessWidget {
               monthShort(date),
               style: TextStyle(
                 fontSize: 11,
+                height: 1.3,
                 fontWeight: FontWeight.w600,
                 color: color.withValues(alpha: .85),
               ),
@@ -615,7 +621,7 @@ class StatusPill extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
