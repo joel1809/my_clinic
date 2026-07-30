@@ -1,19 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Le HTTP en clair n'est autorisé que vers le backend de développement
-    (php artisan serve). Si l'adresse IP du PC change, mettez-la à jour ici
-    ET dans lib/core/app_config.dart. Tout autre trafic doit être en HTTPS.
+    Build de production : tout le trafic doit passer en HTTPS, sans exception.
+
+    Les tolérances HTTP en clair nécessaires au développement (php artisan
+    serve sur le PC, émulateur, Wi-Fi local) vivent dans la variante debug,
+    android/app/src/debug/res/xml/network_security_config.xml, qui remplace ce
+    fichier dans les builds de développement. Elles ne sont donc jamais
+    embarquées dans un APK distribué.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">127.0.0.1</domain>
-        <!-- Émulateur Android : hôte de la machine -->
-        <domain includeSubdomains="false">10.0.2.2</domain>
-        <!-- PC de développement sur le réseau Wi-Fi -->
-        <domain includeSubdomains="false">192.168.100.12</domain>
-        <domain includeSubdomains="false">192.168.1.24</domain>
-        <domain includeSubdomains="false">192.168.1.47</domain>
-    </domain-config>
 </network-security-config>

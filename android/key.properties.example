@@ -1,0 +1,16 @@
+# Modèle de configuration de signature de production.
+#
+# 1. Générer le magasin de clés (une seule fois, à conserver précieusement :
+#    le perdre empêche toute mise à jour de l'application publiée) :
+#
+#      keytool -genkey -v -keystore %USERPROFILE%\medolia-release.jks \
+#        -keyalg RSA -keysize 2048 -validity 10000 -alias medolia
+#
+# 2. Copier ce fichier en android/key.properties et y reporter les valeurs.
+#    android/key.properties est ignoré par git : il ne doit jamais être
+#    versionné ni partagé.
+
+storeFile=C:/Users/DELL/medolia-release.jks
+storePassword=
+keyAlias=medolia
+keyPassword=

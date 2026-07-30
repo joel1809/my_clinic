@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Variante DEBUG uniquement : cette configuration remplace celle de
+    src/main/ dans les builds de développement et n'entre jamais dans un APK
+    release.
+
+    Le HTTP en clair y est toléré vers le backend local (php artisan serve).
+    Si l'adresse IP du PC change, mettez-la à jour ici ET dans
+    lib/core/app_config.dart. Tout autre trafic reste en HTTPS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <!-- Émulateur Android : hôte de la machine -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- PC de développement sur le réseau Wi-Fi -->
+        <domain includeSubdomains="false">192.168.100.12</domain>
+        <domain includeSubdomains="false">192.168.1.24</domain>
+        <domain includeSubdomains="false">192.168.1.47</domain>
+    </domain-config>
+</network-security-config>
