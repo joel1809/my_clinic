@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../theme.dart';
 import 'doctor.dart';
+import 'insurance.dart';
 
 /// Patient concerné par un rendez-vous (exposé aux médecins/admins).
 class AppointmentPatient {
@@ -32,6 +34,7 @@ class Appointment {
     required this.isCancellable,
     required this.isConfirmable,
     this.doctor,
+    this.insurances = const [],
     this.patient,
     this.createdAt,
   });
@@ -46,6 +49,10 @@ class Appointment {
   final bool isCancellable;
   final bool isConfirmable;
   final Doctor? doctor;
+
+  /// Assurances déclarées par le patient à la réservation.
+  final List<Insurance> insurances;
+
   final AppointmentPatient? patient;
   final String? createdAt;
 
@@ -62,6 +69,12 @@ class Appointment {
         doctor: json['doctor'] is Map<String, dynamic>
             ? Doctor.fromJson(json['doctor'] as Map<String, dynamic>)
             : null,
+        insurances: json['insurances'] is List
+            ? (json['insurances'] as List)
+                .whereType<Map<String, dynamic>>()
+                .map(Insurance.fromJson)
+                .toList()
+            : const [],
         patient: json['patient'] is Map<String, dynamic>
             ? AppointmentPatient.fromJson(
                 json['patient'] as Map<String, dynamic>)
@@ -69,12 +82,13 @@ class Appointment {
         createdAt: json['created_at'] as String?,
       );
 
+  /// Couleur du statut, prise dans la palette du système de design.
   Color statusColor(BuildContext context) => switch (status) {
-        'pending' => Colors.orange,
-        'confirmed' => Colors.green,
-        'cancelled' => Theme.of(context).colorScheme.error,
-        'completed' => Colors.blueGrey,
-        _ => Theme.of(context).colorScheme.primary,
+        'pending' => AppPalette.warning,
+        'confirmed' => AppPalette.success,
+        'cancelled' => AppPalette.danger,
+        'completed' => AppPalette.inkMuted,
+        _ => AppPalette.primary,
       };
 
   IconData get statusIcon => switch (status) {

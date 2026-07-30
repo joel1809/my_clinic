@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../repositories/popup_repository.dart';
 import '../../state/auth_state.dart';
+import '../../theme.dart';
+import '../../widgets/info_popup.dart';
 import '../appointments/appointments_tab.dart';
 import '../articles/articles_tab.dart';
 import '../profile/profile_tab.dart';
@@ -26,6 +29,18 @@ class _HomeShellState extends State<HomeShell>
     duration: const Duration(milliseconds: 250),
     value: 1,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    // Pop-up informationnel de la clinique, comme sur la page d'accueil du
+    // site web : affiché une fois l'écran en place, selon sa fréquence.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        maybeShowInfoPopup(context, context.read<PopupRepository>());
+      }
+    });
+  }
 
   void _select(int index) {
     if (index == _index) return;
@@ -114,19 +129,15 @@ class _FloatingNavBar extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 16),
+      padding: EdgeInsets.fromLTRB(
+          AppSpacing.gutter, 0, AppSpacing.gutter, bottomInset + 12),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .10),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(AppRadius.sheet),
+          border: Border.all(color: AppPalette.hairline),
+          boxShadow: AppShadows.raised,
         ),
         child: Row(
           children: [
@@ -165,40 +176,39 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(AppRadius.pill),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: selected ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          color: selected ? AppPalette.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               selected ? selectedIcon : icon,
-              size: 24,
-              color: selected ? scheme.primary : Colors.grey.shade500,
+              size: 23,
+              color: selected ? Colors.white : AppPalette.inkFaint,
             ),
             if (selected) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: 7),
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
                     label,
                     maxLines: 1,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: scheme.primary,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -.1,
+                      color: Colors.white,
                     ),
                   ),
                 ),

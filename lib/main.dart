@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import 'repositories/article_repository.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/medical_record_repository.dart';
+import 'repositories/popup_repository.dart';
 import 'repositories/schedule_repository.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_shell.dart';
@@ -19,6 +21,20 @@ import 'theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_FR');
+
+  // Affichage bord à bord : le contenu s'étend sous la barre d'état et sous la
+  // barre de navigation du téléphone, qui deviennent transparentes au lieu de
+  // fermer l'écran par deux bandes opaques. Les écrans gardent leurs marges
+  // grâce aux encarts système (SafeArea, MediaQuery.paddingOf).
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarDividerColor: Colors.transparent,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  ));
 
   final api = ApiClient();
   final store = SessionStore();
@@ -31,6 +47,7 @@ Future<void> main() async {
     articleRepository: ArticleRepository(api),
     medicalRecordRepository: MedicalRecordRepository(api),
     scheduleRepository: ScheduleRepository(api),
+    popupRepository: PopupRepository(api),
   ));
 }
 
@@ -43,6 +60,7 @@ class MyClinicApp extends StatelessWidget {
     required this.articleRepository,
     required this.medicalRecordRepository,
     required this.scheduleRepository,
+    required this.popupRepository,
   });
 
   final AuthState authState;
@@ -51,6 +69,7 @@ class MyClinicApp extends StatelessWidget {
   final ArticleRepository articleRepository;
   final MedicalRecordRepository medicalRecordRepository;
   final ScheduleRepository scheduleRepository;
+  final PopupRepository popupRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +81,7 @@ class MyClinicApp extends StatelessWidget {
         Provider.value(value: articleRepository),
         Provider.value(value: medicalRecordRepository),
         Provider.value(value: scheduleRepository),
+        Provider.value(value: popupRepository),
       ],
       child: MaterialApp(
         title: 'Medolia',
@@ -117,22 +137,37 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: scheme.primary,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Logo blanc du site web, lisible sur le fond bleu primaire
-            Image.asset(
-              'assets/images/logo_white.png',
-              width: 200,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(height: 32),
-            CircularProgressIndicator(color: scheme.onPrimary),
-          ],
+    return Container(
+      // Dégradé de marque plutôt qu'un aplat : l'écran d'attente donne déjà
+      // le ton du reste de l'application.
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppPalette.primary, AppPalette.primaryDeep],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Logo blanc du site web, lisible sur le fond bleu primaire
+              Image.asset(
+                'assets/images/logo_white.png',
+                width: 200,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 36),
+              const SizedBox(
+                width: 26,
+                height: 26,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2.5),
+              ),
+            ],
+          ),
         ),
       ),
     );

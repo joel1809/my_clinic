@@ -26,6 +26,7 @@ class AppointmentRepository {
     required String startTime,
     required String phone,
     required String reason,
+    List<int> insuranceIds = const [],
   }) async {
     final json = await _api.post('/appointments', body: {
       'specialty_id': specialtyId,
@@ -34,6 +35,8 @@ class AppointmentRepository {
       'start_time': startTime,
       'phone': phone,
       'reason': reason,
+      // Assurances déclarées par le patient pour ce rendez-vous (facultatif)
+      if (insuranceIds.isNotEmpty) 'insurances': insuranceIds,
     }) as Map<String, dynamic>;
     return Appointment.fromJson(json['data'] as Map<String, dynamic>);
   }

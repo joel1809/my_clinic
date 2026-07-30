@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -6,9 +8,11 @@ import '../../core/api_exception.dart';
 import '../../models/appointment.dart';
 import '../../models/availability.dart';
 import '../../models/doctor.dart';
+import '../../models/insurance.dart';
 import '../../repositories/appointment_repository.dart';
 import '../../repositories/catalog_repository.dart';
 import '../../state/auth_state.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 import '../appointments/appointment_detail_screen.dart';
 
@@ -27,10 +31,12 @@ class _BookingScreenState extends State<BookingScreen> {
   int _step = 0;
 
   late Future<List<AvailableDay>> _daysFuture;
+  late Future<List<Insurance>> _insurancesFuture;
   Future<List<TimeSlot>>? _slotsFuture;
 
   AvailableDay? _selectedDay;
   TimeSlot? _selectedSlot;
+  final Set<int> _selectedInsuranceIds = {};
 
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
@@ -43,6 +49,8 @@ class _BookingScreenState extends State<BookingScreen> {
   void initState() {
     super.initState();
     _loadDays();
+    // Assurances partenaires proposées à l'étape de confirmation
+    _insurancesFuture = context.read<CatalogRepository>().insurances();
     // Pré-remplit le téléphone enregistré sur le compte
     final phone = context.read<AuthState>().user?.phone;
     if (phone != null) _phoneController.text = phone;
@@ -85,6 +93,7 @@ class _BookingScreenState extends State<BookingScreen> {
             startTime: _selectedSlot!.start,
             phone: _phoneController.text.trim(),
             reason: _reasonController.text.trim(),
+            insuranceIds: _selectedInsuranceIds.toList(),
           );
 
       if (!mounted) return;
@@ -133,12 +142,12 @@ class _BookingScreenState extends State<BookingScreen> {
             children: [
               NetworkImageBox(
                 url: widget.doctor.photoUrl,
-                width: 38,
-                height: 38,
-                borderRadius: BorderRadius.circular(10),
+                width: 40,
+                height: 40,
+                borderRadius: BorderRadius.circular(AppRadius.control),
                 fallbackIcon: Icons.person,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.gap),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,22 +156,24 @@ class _BookingScreenState extends State<BookingScreen> {
                       widget.doctor.fullName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
+                    const SizedBox(height: 1),
                     Text(
                       widget.doctor.specialty?.name ?? 'Prendre rendez-vous',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 12.5, color: Colors.grey.shade600),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          toolbarHeight: 64,
+          toolbarHeight: 68,
+          // Pas de trait d'ombre au défilement : le fil des étapes juste en
+          // dessous fait déjà la transition avec le contenu.
+          scrolledUnderElevation: 0,
         ),
         body: Column(
           children: [
@@ -210,7 +221,11 @@ class _BookingScreenState extends State<BookingScreen> {
       future: _daysFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const SkeletonList(
+            height: 82,
+            padding: EdgeInsets.fromLTRB(
+                AppSpacing.page, 8, AppSpacing.page, AppSpacing.page),
+          );
         }
         if (snapshot.hasError) {
           return ErrorView(
@@ -223,17 +238,19 @@ class _BookingScreenState extends State<BookingScreen> {
         if (days.isEmpty) {
           return const EmptyView(
             icon: Icons.event_busy_outlined,
+            title: 'Aucune disponibilité',
             message:
-                'Ce médecin n\'a aucune disponibilité pour le moment.\nRevenez plus tard.',
+                'Ce médecin n\'a pas encore ouvert de créneau. Revenez un peu plus tard.',
           );
         }
 
         final openDays = days.where((day) => day.available).length;
 
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page, 8, AppSpacing.page, AppSpacing.page),
           itemCount: days.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.gap),
           itemBuilder: (context, index) {
             if (index == 0) {
               return _StepHeader(
@@ -267,7 +284,11 @@ class _BookingScreenState extends State<BookingScreen> {
             future: _slotsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonList(
+                  height: 64,
+                  padding: EdgeInsets.fromLTRB(
+                      AppSpacing.page, 8, AppSpacing.page, AppSpacing.page),
+                );
               }
               if (snapshot.hasError) {
                 return ErrorView(
@@ -280,13 +301,14 @@ class _BookingScreenState extends State<BookingScreen> {
               final free = slots.where((slot) => slot.available).length;
 
               return ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.page, 8, AppSpacing.page, AppSpacing.page),
                 children: [
                   _SelectedDayBanner(
                     label: _selectedDay?.label ?? '',
                     onChange: () => _goTo(0),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.page),
                   _StepHeader(
                     title: 'Choisissez votre heure',
                     subtitle: slots.isEmpty
@@ -299,8 +321,9 @@ class _BookingScreenState extends State<BookingScreen> {
                       padding: EdgeInsets.only(top: 40),
                       child: EmptyView(
                         icon: Icons.schedule_outlined,
+                        title: 'Journée complète',
                         message:
-                            'Aucun créneau pour cette date.\nChoisissez un autre jour.',
+                            'Aucun créneau n\'est disponible ce jour-là. Choisissez une autre date.',
                       ),
                     )
                   else
@@ -333,22 +356,18 @@ class _BookingScreenState extends State<BookingScreen> {
     if (periodSlots.isEmpty) return const [];
 
     return [
-      const SizedBox(height: 20),
+      const SizedBox(height: 24),
       Row(
         children: [
-          Icon(period.icon, size: 18, color: Colors.grey.shade600),
-          const SizedBox(width: 8),
+          Icon(period.icon, size: 15, color: AppPalette.inkFaint),
+          const SizedBox(width: 7),
           Text(
-            period.label,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-              color: Colors.grey.shade800,
-            ),
+            period.label.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall,
           ),
         ],
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: AppSpacing.gap),
       Wrap(
         spacing: 10,
         runSpacing: 10,
@@ -432,17 +451,17 @@ class _BookingScreenState extends State<BookingScreen> {
                     runSpacing: 8,
                     children: [
                       for (final suggestion in _reasonSuggestions)
-                        ActionChip(
-                          label: Text(suggestion,
-                              style: const TextStyle(fontSize: 12.5)),
-                          backgroundColor: Colors.white,
-                          onPressed: () => setState(() {
+                        FilterPill(
+                          label: suggestion,
+                          selected: _reasonController.text == suggestion,
+                          onTap: () => setState(() {
                             _reasonController.text = suggestion;
                             _formKey.currentState?.validate();
                           }),
                         ),
                     ],
                   ),
+                  _buildInsuranceSection(),
                 ],
               ),
             ),
@@ -452,21 +471,88 @@ class _BookingScreenState extends State<BookingScreen> {
           child: FilledButton.icon(
             onPressed: _submitting ? null : _submit,
             icon: _submitting
-                ? SizedBox(
+                ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: Theme.of(context).colorScheme.onPrimary,
+                      color: Colors.white,
                     ),
                   )
-                : const Icon(Icons.check_circle_outline),
-            label: Text(_submitting
-                ? 'Enregistrement…'
-                : 'Confirmer le rendez-vous'),
+                : const Icon(Icons.check_circle_outline, size: 20),
+            // Le libellé garde tous ses mots sur une ligne : sur un écran
+            // étroit il se réduit plutôt que de se couper.
+            label: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _submitting ? 'Enregistrement…' : 'Confirmer le rendez-vous',
+                maxLines: 1,
+                softWrap: false,
+              ),
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  /// Assurances partenaires : sélection multiple facultative. La section
+  /// n'apparaît pas si le catalogue est vide ou momentanément inaccessible,
+  /// la déclaration restant possible auprès de la clinique.
+  Widget _buildInsuranceSection() {
+    return FutureBuilder<List<Insurance>>(
+      future: _insurancesFuture,
+      builder: (context, snapshot) {
+        final insurances = snapshot.data ?? const <Insurance>[];
+        if (insurances.isEmpty) return const SizedBox.shrink();
+
+        final text = Theme.of(context).textTheme;
+        final error = _apiErrors['insurances']?.firstOrNull ??
+            _apiErrors.entries
+                .firstWhere(
+                  (entry) => entry.key.startsWith('insurances.'),
+                  orElse: () => const MapEntry('', <String>[]),
+                )
+                .value
+                .firstOrNull;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 24),
+            Text('Vos assurances', style: text.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              'Facultatif : indiquez la ou les couvertures dont vous bénéficiez.',
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.gap),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final insurance in insurances)
+                  FilterPill(
+                    label: insurance.name,
+                    selected: _selectedInsuranceIds.contains(insurance.id),
+                    onTap: () => setState(() {
+                      if (!_selectedInsuranceIds.remove(insurance.id)) {
+                        _selectedInsuranceIds.add(insurance.id);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                error,
+                style: text.bodySmall?.copyWith(color: AppPalette.danger),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -507,20 +593,13 @@ class _StepHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-                fontSize: 13, color: Colors.grey.shade600, height: 1.4),
-          ),
+          Text(title, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 5),
+          Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
@@ -536,89 +615,84 @@ class _DayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     final date = DateTime.tryParse(day.date);
-    final color = day.available ? scheme.primary : Colors.grey;
+    // Une journée complète reste affichée mais se retire visuellement : pas
+    // d'accent bleu, pas d'ombre, texte estompé.
+    final color = day.available ? AppPalette.primary : AppPalette.inkFaint;
 
-    return Opacity(
-      opacity: day.available ? 1 : .6,
-      child: Card(
-        color: Colors.white,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: day.available ? onTap : null,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+    return AppCard(
+      onTap: day.available ? onTap : null,
+      padding: const EdgeInsets.all(AppSpacing.gap),
+      color: day.available ? Colors.white : AppPalette.canvas,
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(AppRadius.control),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 52,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: .10),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        date != null ? '${date.day}' : '—',
-                        style: TextStyle(
-                          fontSize: 20,
-                          height: 1.1,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                      if (date != null)
-                        Text(
-                          monthShort(date),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: color.withValues(alpha: .85),
-                          ),
-                        ),
-                    ],
+                Text(
+                  date != null ? '${date.day}' : '—',
+                  style: TextStyle(
+                    fontSize: 21,
+                    height: 1.1,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -.5,
+                    color: color,
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        date != null
-                            ? toBeginningOfSentenceCase(
-                                DateFormat('EEEE', 'fr_FR').format(date))
-                            : day.label,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        day.available
-                            ? 'Créneaux disponibles'
-                            : 'Journée complète',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: day.available
-                              ? Colors.green.shade700
-                              : Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
+                if (date != null)
+                  Text(
+                    monthShort(date),
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                      color: color.withValues(alpha: .85),
+                    ),
                   ),
-                ),
-                if (day.available)
-                  Icon(Icons.chevron_right_rounded, color: scheme.primary)
-                else
-                  Icon(Icons.event_busy_outlined,
-                      size: 20, color: Colors.grey.shade500),
               ],
             ),
           ),
-        ),
+          const SizedBox(width: AppSpacing.gutter),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  date != null
+                      ? toBeginningOfSentenceCase(
+                          DateFormat('EEEE', 'fr_FR').format(date))
+                      : day.label,
+                  style: day.available
+                      ? text.titleSmall
+                      : text.titleSmall?.copyWith(color: AppPalette.inkMuted),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  day.available ? 'Créneaux disponibles' : 'Journée complète',
+                  style: text.bodySmall?.copyWith(
+                    color: day.available
+                        ? AppPalette.success
+                        : AppPalette.inkFaint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (day.available)
+            const Icon(Icons.chevron_right_rounded,
+                size: 22, color: AppPalette.inkFaint)
+          else
+            const Icon(Icons.event_busy_outlined,
+                size: 19, color: AppPalette.inkFaint),
+        ],
       ),
     );
   }
@@ -633,27 +707,31 @@ class _SelectedDayBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, 10, 8, 10),
       decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: .5),
-        borderRadius: BorderRadius.circular(14),
+        color: AppPalette.primarySoft,
+        borderRadius: BorderRadius.circular(AppRadius.control),
       ),
       child: Row(
         children: [
-          Icon(Icons.event_available_rounded, size: 20, color: scheme.primary),
+          const Icon(Icons.event_available_rounded,
+              size: 19, color: AppPalette.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 13.5),
+              style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
           TextButton(
             onPressed: onChange,
+            style: TextButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              textStyle: Theme.of(context).textTheme.labelMedium,
+            ),
             child: const Text('Modifier'),
           ),
         ],
@@ -676,44 +754,47 @@ class _SlotChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(AppRadius.control);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: radius,
       onTap: slot.available ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: 96,
-        height: 44,
+        height: 46,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: !slot.available
-              ? Colors.grey.shade200
+              ? AppPalette.canvas
               : selected
-                  ? scheme.primary
+                  ? AppPalette.primary
                   : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: radius,
           border: Border.all(
             color: !slot.available
-                ? Colors.grey.shade300
+                ? AppPalette.hairline
                 : selected
-                    ? scheme.primary
-                    : scheme.primary.withValues(alpha: .35),
-            width: selected ? 2 : 1,
+                    ? AppPalette.primary
+                    : AppPalette.border,
+            width: selected ? 1.6 : 1,
           ),
+          // Le créneau retenu se détache du reste de la grille.
+          boxShadow: selected ? AppShadows.brand : null,
         ),
         child: Text(
           // Seule l'heure de début est utile : « 09h00 »
           slot.start.replaceAll(':', 'h'),
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 14.5,
             fontWeight: FontWeight.w600,
             decoration: slot.available ? null : TextDecoration.lineThrough,
+            decorationColor: AppPalette.inkFaint,
             color: !slot.available
-                ? Colors.grey
+                ? AppPalette.inkFaint
                 : selected
-                    ? scheme.onPrimary
-                    : scheme.onSurface,
+                    ? Colors.white
+                    : AppPalette.ink,
           ),
         ),
       ),
@@ -737,45 +818,40 @@ class _RecapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
-    return Card(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return AppCard(
         child: Column(
           children: [
             Row(
               children: [
                 NetworkImageBox(
                   url: doctor.photoUrl,
-                  width: 48,
-                  height: 48,
-                  borderRadius: BorderRadius.circular(12),
+                  width: 52,
+                  height: 52,
+                  borderRadius: BorderRadius.circular(AppRadius.control),
                   fallbackIcon: Icons.person,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.gap),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        doctor.fullName,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      if (doctor.specialty != null)
+                      Text(doctor.fullName, style: text.titleSmall),
+                      if (doctor.specialty != null) ...[
+                        const SizedBox(height: 3),
                         Text(
                           doctor.specialty!.name,
-                          style:
-                              TextStyle(fontSize: 13, color: scheme.primary),
+                          style: text.labelMedium
+                              ?.copyWith(color: AppPalette.primary),
                         ),
+                      ],
                     ],
                   ),
                 ),
               ],
             ),
-            const Divider(height: 24),
+            const Divider(height: 28),
             _SummaryRow(
               icon: Icons.event_outlined,
               label: 'Date',
@@ -796,14 +872,17 @@ class _RecapCard extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: onChangeSlot,
-                icon: const Icon(Icons.edit_calendar_outlined, size: 18),
+                style: TextButton.styleFrom(
+                  textStyle: text.labelMedium,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+                icon: const Icon(Icons.edit_calendar_outlined, size: 17),
                 label: const Text('Changer de créneau'),
               ),
             ),
           ],
-        ),
-      ),
-    );
+        ));
   }
 }
 
@@ -820,8 +899,8 @@ class _BottomBar extends StatelessWidget {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .06),
-            blurRadius: 16,
+            color: AppPalette.shadow.withValues(alpha: .12),
+            blurRadius: 18,
             offset: const Offset(0, -4),
           ),
         ],
@@ -829,7 +908,8 @@ class _BottomBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page, 12, AppSpacing.page, 12),
           child: child,
         ),
       ),
@@ -848,11 +928,9 @@ class _StepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Container(
-      color: scheme.surface,
-      padding: const EdgeInsets.fromLTRB(24, 4, 24, 14),
+      color: AppPalette.canvas,
+      padding: const EdgeInsets.fromLTRB(28, 4, 28, 16),
       child: Row(
         children: [
           for (var i = 0; i < _labels.length; i++) ...[
@@ -860,17 +938,18 @@ class _StepIndicator extends StatelessWidget {
               Expanded(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
-                  height: 3,
-                  margin: const EdgeInsets.only(bottom: 16),
+                  height: 2,
+                  margin: const EdgeInsets.only(bottom: 18),
                   decoration: BoxDecoration(
-                    color: i <= current ? scheme.primary : Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
+                    color:
+                        i <= current ? AppPalette.primary : AppPalette.border,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                 ),
               ),
             InkWell(
               onTap: () => onStepTapped(i),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadius.control),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -880,35 +959,40 @@ class _StepIndicator extends StatelessWidget {
                     height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: i <= current
-                          ? scheme.primary
-                          : Colors.grey.shade300,
+                      // L'étape en cours est pleine, les précédentes cochées,
+                      // les suivantes simplement cerclées.
+                      color: i <= current ? AppPalette.primary : Colors.white,
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: i <= current
+                            ? AppPalette.primary
+                            : AppPalette.border,
+                      ),
                     ),
                     child: i < current
-                        ? Icon(Icons.check_rounded,
-                            size: 16, color: scheme.onPrimary)
+                        ? const Icon(Icons.check_rounded,
+                            size: 15, color: Colors.white)
                         : Text(
                             '${i + 1}',
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                               color: i <= current
-                                  ? scheme.onPrimary
-                                  : Colors.grey.shade600,
+                                  ? Colors.white
+                                  : AppPalette.inkFaint,
                             ),
                           ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     _labels[i],
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight:
-                          i == current ? FontWeight.w700 : FontWeight.w500,
+                          i == current ? FontWeight.w600 : FontWeight.w500,
                       color: i <= current
-                          ? scheme.primary
-                          : Colors.grey.shade600,
+                          ? AppPalette.primary
+                          : AppPalette.inkFaint,
                     ),
                   ),
                 ],
@@ -932,47 +1016,65 @@ class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
 
-  /// Largeur réservée au libellé pour que les valeurs des lignes successives
-  /// (Date, Horaire, Durée) démarrent toutes sur la même colonne.
-  static const _labelWidth = 78.0;
+  /// Libellé le plus long du récapitulatif : la colonne se dimensionne sur lui
+  /// pour que les valeurs démarrent toutes au même endroit, sans qu'aucun
+  /// libellé ne se coupe en deux lignes.
+  static const _widestLabel = 'Assurance';
 
-  /// Plafond de la colonne de libellé : au-delà, la valeur n'aurait plus assez
-  /// de place sur un écran étroit.
-  static const _maxLabelWidth = 110.0;
+  /// Marge de sécurité après le libellé mesuré.
+  static const _labelGap = 12.0;
 
   @override
   Widget build(BuildContext context) {
-    // La colonne suit la taille de texte du système, sinon « Médecin » passe
-    // sur deux lignes dès que l'utilisateur agrandit le texte.
-    final labelWidth = MediaQuery.textScalerOf(context)
-        .scale(_labelWidth)
-        .clamp(_labelWidth, _maxLabelWidth);
+    final labelStyle = TextStyle(
+      color: AppPalette.inkMuted,
+      // Même interligne que la valeur pour que les deux premières lignes
+      // reposent sur la même ligne de base.
+      height: 1.35,
+      fontSize: Theme.of(context).textTheme.bodyMedium?.fontSize,
+    );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        // Icône et libellé restent au niveau de la première ligne quand la
-        // valeur passe sur deux lignes (« Samedi 25 juillet 2026 »).
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: labelWidth,
-            child: Text(
-              label,
-              // Même interligne que la valeur pour que les deux premières
-              // lignes reposent sur la même ligne de base.
-              style: TextStyle(color: Colors.grey.shade600, height: 1.35),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w600, height: 1.35),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Largeur mesurée à la taille de texte réellement appliquée : une
+          // largeur fixe finit par couper le libellé quand l'utilisateur
+          // agrandit le texte du système.
+          final painter = TextPainter(
+            text: TextSpan(text: _widestLabel, style: labelStyle),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout();
+          final labelWidth = math.min(
+            painter.width + _labelGap,
+            constraints.maxWidth * .5,
+          );
+
+          return Row(
+            // Icône et libellé restent au niveau de la première ligne quand la
+            // valeur passe sur deux lignes (« Samedi 25 juillet 2026 »).
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 19, color: AppPalette.inkFaint),
+              const SizedBox(width: AppSpacing.gap),
+              SizedBox(
+                width: labelWidth,
+                child: Text(label, style: labelStyle),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                    color: AppPalette.ink,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -987,12 +1089,12 @@ class _BookingSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.page),
           child: Column(
             children: [
               const Spacer(),
@@ -1006,55 +1108,58 @@ class _BookingSuccessScreen extends StatelessWidget {
                       builder: (context, scale, child) =>
                           Transform.scale(scale: scale, child: child),
                       child: Container(
-                        padding: const EdgeInsets.all(24),
+                        width: 104,
+                        height: 104,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: AppPalette.success.withValues(alpha: .10),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.check_circle,
-                            size: 72, color: Colors.green.shade600),
+                        child: const Icon(Icons.check_rounded,
+                            size: 52, color: AppPalette.success),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
                     Text(
-                      'Rendez-vous enregistré !',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                      'Rendez-vous enregistré',
+                      style: text.headlineMedium,
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Votre demande est en attente de confirmation par la clinique. '
                       'Vous serez prévenu(e) dès qu\'un médecin l\'aura validée.',
                       textAlign: TextAlign.center,
-                      style:
-                          TextStyle(color: Colors.grey.shade600, height: 1.5),
+                      style: text.bodyMedium,
                     ),
-                    const SizedBox(height: 24),
-                    Card(
-                      color: Colors.white,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
+                    const SizedBox(height: 28),
+                    AppCard(
+                      child: Column(
+                        children: [
+                          _SummaryRow(
+                            icon: Icons.person_outline,
+                            label: 'Médecin',
+                            value: doctor.fullName,
+                          ),
+                          _SummaryRow(
+                            icon: Icons.event_outlined,
+                            label: 'Date',
+                            value: appointment.longDateLabel,
+                          ),
+                          _SummaryRow(
+                            icon: Icons.schedule_outlined,
+                            label: 'Horaire',
+                            value: appointment.timeRangeLabel,
+                          ),
+                          if (appointment.insurances.isNotEmpty)
                             _SummaryRow(
-                              icon: Icons.person_outline,
-                              label: 'Médecin',
-                              value: doctor.fullName,
+                              icon: Icons.health_and_safety_outlined,
+                              label: 'Assurance',
+                              value: appointment.insurances
+                                  .map((i) => i.name)
+                                  .join(', '),
                             ),
-                            _SummaryRow(
-                              icon: Icons.event_outlined,
-                              label: 'Date',
-                              value: appointment.longDateLabel,
-                            ),
-                            _SummaryRow(
-                              icon: Icons.schedule_outlined,
-                              label: 'Horaire',
-                              value: appointment.timeRangeLabel,
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
                   ],
@@ -1070,15 +1175,8 @@ class _BookingSuccessScreen extends StatelessWidget {
                 ),
                 child: const Text('Voir le rendez-vous'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.gap),
               OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  foregroundColor: scheme.primary,
-                ),
                 onPressed: () =>
                     Navigator.of(context).popUntil((route) => route.isFirst),
                 child: const Text('Retour à l\'accueil'),

@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/appointment.dart';
 import '../../repositories/appointment_repository.dart';
 import '../../state/auth_state.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 import '../medical/medical_record_screen.dart';
 import 'appointment_actions.dart';
@@ -68,7 +71,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
           builder: (context, snapshot) {
             if (_appointment == null) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonList(height: 130, count: 3);
               }
               if (snapshot.hasError) {
                 return ErrorView(
@@ -94,188 +97,189 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
   }
 
   Widget _buildContent(Appointment appointment, bool isStaff) {
-    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     final statusColor = appointment.statusColor(context);
 
+    // Sans barre d'actions en dessous, c'est au contenu de laisser la place de
+    // la zone système : sinon il passe sous la barre de navigation.
+    final hasActionBar =
+        appointment.isCancellable || (isStaff && appointment.isConfirmable);
+    final bottomInset =
+        hasActionBar ? 8.0 : AppSpacing.page + MediaQuery.viewPaddingOf(context).bottom;
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      padding: EdgeInsets.fromLTRB(
+          AppSpacing.page, AppSpacing.page, AppSpacing.page, bottomInset),
       children: [
         // Bandeau date / horaire, teinté selon le statut
         FadeSlideIn(
           child: Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: .10),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: statusColor.withValues(alpha: .25)),
+              color: statusColor.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: statusColor.withValues(alpha: .20)),
             ),
             child: Column(
               children: [
                 StatusPill(appointment: appointment, large: true),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.gutter),
                 Text(
                   appointment.longDateLabel,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.bold),
+                  style: text.titleLarge,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   appointment.timeRangeLabel,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
-                  ),
+                  style: text.titleMedium?.copyWith(color: AppPalette.inkMuted),
                 ),
                 if (appointment.status == 'pending') ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.gap),
                   Text(
                     isStaff
                         ? 'Ce rendez-vous attend votre confirmation.'
                         : 'En attente de confirmation par la clinique.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 12.5, color: Colors.grey.shade700),
+                    style: text.bodySmall,
                   ),
                 ],
               ],
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.gutter),
         if (appointment.doctor != null)
-          Card(
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  NetworkImageBox(
-                    url: appointment.doctor!.photoUrl,
-                    width: 56,
-                    height: 56,
-                    borderRadius: BorderRadius.circular(12),
-                    fallbackIcon: Icons.person,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          appointment.doctor!.fullName,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                        if (appointment.doctor!.specialty != null)
-                          Text(
-                            appointment.doctor!.specialty!.name,
-                            style: TextStyle(
-                                fontSize: 13, color: scheme.primary),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        const SizedBox(height: 12),
-        Card(
-          color: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+          AppCard(
+            child: Row(
               children: [
-                _DetailRow(
-                  icon: Icons.notes_outlined,
-                  label: 'Motif',
-                  value: appointment.reason.trim().isEmpty
-                      ? '—'
-                      : appointment.reason,
+                NetworkImageBox(
+                  url: appointment.doctor!.photoUrl,
+                  width: 56,
+                  height: 56,
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                  fallbackIcon: Icons.person,
                 ),
-                if (appointment.createdAt != null)
-                  _DetailRow(
-                    icon: Icons.history_rounded,
-                    label: 'Demandé le',
-                    value: _createdAtLabel(appointment.createdAt!),
+                const SizedBox(width: AppSpacing.gap),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(appointment.doctor!.fullName,
+                          style: text.titleSmall),
+                      if (appointment.doctor!.specialty != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          appointment.doctor!.specialty!.name,
+                          style: text.labelMedium
+                              ?.copyWith(color: AppPalette.primary),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
               ],
             ),
+          ),
+        const SizedBox(height: AppSpacing.gap),
+        AppCard(
+          child: Column(
+            children: [
+              _DetailRow(
+                icon: Icons.notes_outlined,
+                label: 'Motif',
+                value: appointment.reason.trim().isEmpty
+                    ? '—'
+                    : appointment.reason,
+              ),
+              if (appointment.insurances.isNotEmpty)
+                _DetailRow(
+                  icon: Icons.health_and_safety_outlined,
+                  label: 'Assurance',
+                  value: appointment.insurances
+                      .map((i) => i.name)
+                      .join(', '),
+                ),
+              if (appointment.createdAt != null)
+                _DetailRow(
+                  icon: Icons.history_rounded,
+                  label: 'Demandé le',
+                  value: _createdAtLabel(appointment.createdAt!),
+                ),
+            ],
           ),
         ),
         if (isStaff && appointment.patient != null) ...[
-          const SizedBox(height: 12),
-          Card(
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor: scheme.primaryContainer,
-                        child: Text(
-                          _initials(appointment.patient!.name),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: scheme.onPrimaryContainer,
-                          ),
-                        ),
+          const SizedBox(height: AppSpacing.gap),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: AppPalette.primarySoft,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              appointment.patient!.name ?? 'Patient',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            Text(
-                              appointment.patient!.phone ??
-                                  'Aucun téléphone renseigné',
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.grey.shade600),
-                            ),
-                          ],
-                        ),
+                      child: Text(
+                        _initials(appointment.patient!.name),
+                        style: text.titleMedium
+                            ?.copyWith(color: AppPalette.primary),
                       ),
-                      if (appointment.patient!.phone != null)
-                        IconButton.filledTonal(
-                          onPressed: () => callPatient(
-                              context, appointment.patient!.phone!),
-                          icon: const Icon(Icons.phone_rounded),
-                          tooltip: 'Appeler le patient',
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 46),
-                      ),
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => MedicalRecordScreen(
-                            patientId: appointment.patient!.id,
-                            patientName: appointment.patient!.name,
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.folder_shared_outlined),
-                      label: const Text('Dossier médical'),
                     ),
+                    const SizedBox(width: AppSpacing.gap),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(appointment.patient!.name ?? 'Patient',
+                              style: text.titleSmall),
+                          const SizedBox(height: 2),
+                          Text(
+                            appointment.patient!.phone ??
+                                'Aucun téléphone renseigné',
+                            style: text.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (appointment.patient!.phone != null)
+                      IconButton.filledTonal(
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppPalette.primarySoft,
+                          foregroundColor: AppPalette.primary,
+                        ),
+                        onPressed: () =>
+                            callPatient(context, appointment.patient!.phone!),
+                        icon: const Icon(Icons.phone_rounded, size: 20),
+                        tooltip: 'Appeler le patient',
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.gutter),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 46),
+                    ),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MedicalRecordScreen(
+                          patientId: appointment.patient!.id,
+                          patientName: appointment.patient!.name,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.folder_shared_outlined, size: 19),
+                    label: const Text('Dossier médical'),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -295,8 +299,8 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .06),
-            blurRadius: 16,
+            color: AppPalette.shadow.withValues(alpha: .12),
+            blurRadius: 18,
             offset: const Offset(0, -4),
           ),
         ],
@@ -304,19 +308,18 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page, 12, AppSpacing.page, 12),
           child: Row(
             children: [
               if (canCancel)
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 52),
-                      foregroundColor: Theme.of(context).colorScheme.error,
+                      minimumSize: const Size(0, AppSpacing.controlHeight),
+                      foregroundColor: AppPalette.danger,
                       side: BorderSide(
-                          color: Theme.of(context).colorScheme.error),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        color: AppPalette.danger.withValues(alpha: .45),
                       ),
                     ),
                     onPressed: _busy
@@ -334,10 +337,10 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
               if (canConfirm && canCancel) const SizedBox(width: 12),
               if (canConfirm)
                 Expanded(
-                  flex: 2,
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green.shade600,
+                      minimumSize: const Size(0, AppSpacing.controlHeight),
+                      backgroundColor: AppPalette.success,
                     ),
                     onPressed: _busy
                         ? null
@@ -388,47 +391,62 @@ class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
 
-  /// Même largeur de libellé que le récapitulatif de prise de rendez-vous,
-  /// pour que les valeurs démarrent toutes sur la même colonne.
-  static const _labelWidth = 78.0;
+  /// Libellé le plus long de l'écran : toutes les lignes dimensionnent leur
+  /// colonne sur lui, donc les valeurs démarrent sur la même colonne sans
+  /// qu'aucun libellé ne se coupe en deux lignes.
+  static const _widestLabel = 'Demandé le';
 
-  /// Plafond de la colonne de libellé : au-delà, la valeur n'aurait plus assez
-  /// de place sur un écran étroit.
-  static const _maxLabelWidth = 110.0;
+  /// Marge de sécurité après le libellé mesuré, pour que la valeur ne vienne
+  /// pas coller au texte.
+  static const _labelGap = 12.0;
 
   @override
   Widget build(BuildContext context) {
-    // La colonne suit la taille de texte du système, sinon « Demandé le »
-    // passe sur deux lignes dès que l'utilisateur agrandit le texte.
-    final labelWidth = MediaQuery.textScalerOf(context)
-        .scale(_labelWidth)
-        .clamp(_labelWidth, _maxLabelWidth);
+    // Même interligne pour le libellé et la valeur, afin que les deux
+    // premières lignes reposent sur la même ligne de base.
+    final labelStyle = TextStyle(color: Colors.grey.shade600, height: 1.35);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        // Icône et libellé restent au niveau de la première ligne quand la
-        // valeur est longue (un motif de consultation, par exemple).
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: labelWidth,
-            child: Text(
-              label,
-              // Même interligne que la valeur pour que les deux premières
-              // lignes reposent sur la même ligne de base.
-              style: TextStyle(color: Colors.grey.shade600, height: 1.35),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w500, height: 1.35),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // La colonne est mesurée à la taille de texte réellement appliquée :
+          // « Demandé le » tient sur une ligne même avec un texte système
+          // agrandi, là où une largeur fixe finissait par le couper.
+          final painter = TextPainter(
+            text: TextSpan(text: _widestLabel, style: labelStyle),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout();
+
+          // Sur un écran étroit, le libellé ne prend jamais plus de la moitié
+          // de la ligne, sinon la valeur n'aurait plus de place.
+          final labelWidth = math.min(
+            painter.width + _labelGap,
+            constraints.maxWidth * .5,
+          );
+
+          return Row(
+            // Icône et libellé restent au niveau de la première ligne quand la
+            // valeur est longue (un motif de consultation, par exemple).
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: labelWidth,
+                child: Text(label, style: labelStyle),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  style:
+                      const TextStyle(fontWeight: FontWeight.w500, height: 1.35),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -1,6 +1,7 @@
 import '../core/api_client.dart';
 import '../models/availability.dart';
 import '../models/doctor.dart';
+import '../models/insurance.dart';
 import '../models/specialty.dart';
 
 /// Catalogue : spécialités, médecins et leurs disponibilités.
@@ -28,6 +29,14 @@ class CatalogRepository {
   Future<Doctor> doctor(int id) async {
     final json = await _api.get('/doctors/$id') as Map<String, dynamic>;
     return Doctor.fromJson(json['data'] as Map<String, dynamic>);
+  }
+
+  /// Assurances partenaires proposées lors de la prise de rendez-vous.
+  Future<List<Insurance>> insurances() async {
+    final json = await _api.get('/insurances') as Map<String, dynamic>;
+    return (json['data'] as List)
+        .map((i) => Insurance.fromJson(i as Map<String, dynamic>))
+        .toList();
   }
 
   /// Prochains jours de consultation (authentifié).
