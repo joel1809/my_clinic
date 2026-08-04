@@ -10,16 +10,20 @@ import 'package:my_clinic/repositories/medical_record_repository.dart';
 import 'package:my_clinic/screens/medical/medical_record_screen.dart';
 
 /// Rendu de l'écran « Mon dossier médical » (MedicalRecordScreen.mine) : on
-/// vérifie que la fiche clinique et les documents du patient s'affichent, sans
-/// appel réseau (le dossier est fourni par un repository stub).
+/// vérifie que la fiche clinique et l'historique des consultations
+/// s'affichent, sans appel réseau (le dossier est fourni par un stub).
 void main() {
   setUpAll(() => initializeDateFormatting('fr_FR'));
 
-  Future<void> pumpScreen(WidgetTester tester) async {
+  Future<_StubRecordRepo> pumpScreen(
+    WidgetTester tester, {
+    PatientRecord? record,
+  }) async {
+    final repository = _StubRecordRepo(record);
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          Provider<MedicalRecordRepository>.value(value: _StubRecordRepo()),
+          Provider<MedicalRecordRepository>.value(value: repository),
         ],
         child: const MaterialApp(
           locale: Locale('fr'),
@@ -28,6 +32,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    return repository;
   }
 
   testWidgets('affiche la synthèse clinique et les documents du patient',
@@ -47,53 +52,94 @@ void main() {
     expect(find.text('Assurances'), findsOneWidget);
     expect(find.text('Assurance Alpha, Mutuelle Beta'), findsOneWidget);
 
-    // Consultations puis documents : ces sections sont plus bas que la
-    // hauteur du viewport de test, il faut faire défiler pour les atteindre.
+    // Consultations : la section est plus bas que la hauteur du viewport de
+    // test, il faut faire défiler pour l'atteindre.
     await tester.drag(find.byType(ListView), const Offset(0, -400));
     await tester.pumpAndSettle();
 
     expect(find.text('CONSULTATIONS (1)'), findsOneWidget);
     expect(find.text('Dr Kouadio N\'Guessan · Cardiologie'), findsOneWidget);
+    // La carte résume : le motif, et le nombre de documents joints. Le
+    // compte rendu complet est sur l'écran de détail.
     expect(find.text('Douleurs thoraciques à l\'effort'), findsOneWidget);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-
-    expect(find.text('DOCUMENTS (1)'), findsOneWidget);
-    expect(find.text('Ordonnance — traitement antipaludéen'), findsOneWidget);
+    expect(find.text('1 document'), findsOneWidget);
+    expect(find.text('Angor stable'), findsNothing);
+    // Les documents sont joints à leur consultation : plus de section à part.
+    expect(find.textContaining('DOCUMENTS'), findsNothing);
 
     // Aucun état « vide » pour ce patient.
     expect(find.textContaining('Aucune fiche médicale'), findsNothing);
     expect(find.textContaining('Aucune consultation'), findsNothing);
-    expect(find.textContaining('Aucun document'), findsNothing);
   });
 
   testWidgets('un dossier vide affiche les messages d\'absence',
       (tester) async {
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<MedicalRecordRepository>.value(
-            value: _StubRecordRepo(
-              const PatientRecord(
-                patient: RecordPatient(id: 9, name: 'Nouveau Patient'),
-              ),
-            ),
-          ),
-        ],
-        child: const MaterialApp(
-          locale: Locale('fr'),
-          home: MedicalRecordScreen.mine(),
-        ),
+    await pumpScreen(
+      tester,
+      record: const PatientRecord(
+        patient: RecordPatient(id: 9, name: 'Nouveau Patient'),
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(find.textContaining('Aucune fiche médicale'), findsOneWidget);
     expect(find.text('CONSULTATIONS (0)'), findsOneWidget);
     expect(find.textContaining('Aucune consultation'), findsOneWidget);
-    expect(find.text('DOCUMENTS (0)'), findsOneWidget);
-    expect(find.textContaining('Aucun document'), findsOneWidget);
+  });
+
+  testWidgets('une carte de consultation ouvre son détail', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Dr Kouadio N\'Guessan · Cardiologie'));
+    await tester.pumpAndSettle();
+
+    // Le compte rendu complet, absent de la carte, est ici.
+    expect(find.text('Détail de la consultation'), findsOneWidget);
+    expect(find.text('Angor stable'), findsOneWidget);
+    expect(find.text('Bêtabloquant, contrôle dans 3 mois.'), findsOneWidget);
+
+    // Les documents joints s'ouvrent depuis le détail.
+    expect(find.text('DOCUMENTS JOINTS (1)'), findsOneWidget);
+    expect(find.text('Ordonnance — traitement antipaludéen'), findsOneWidget);
+  });
+
+  testWidgets('demande 5 consultations par page et pagine au-delà',
+      (tester) async {
+    // Douze consultations réparties par l'API en trois pages de cinq.
+    final repository = await pumpScreen(
+      tester,
+      record: PatientRecord(
+        patient: const RecordPatient(id: 7, name: 'Awa Diomandé'),
+        consultations: RecordPage(
+          total: 12,
+          lastPage: 3,
+          items: [
+            for (var i = 0; i < 5; i++)
+              ConsultationItem(
+                id: i,
+                doctor: 'Dr Kouadio N\'Guessan',
+                specialty: 'Cardiologie',
+                consultedAt: '2026-05-0${i + 1}',
+              ),
+          ],
+        ),
+      ),
+    );
+
+    expect(repository.requestedPerPage, 5,
+        reason: 'la pagination démarre à 5 consultations');
+
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+
+    // Barre de pages présente : on demande la deuxième.
+    expect(find.text('3'), findsOneWidget);
+    await tester.tap(find.text('2'));
+    await tester.pumpAndSettle();
+
+    expect(repository.requestedPages, [1, 2]);
   });
 }
 
@@ -106,11 +152,15 @@ class _StubRecordRepo extends MedicalRecordRepository {
   final PatientRecord _record;
 
   @override
-  Future<PatientRecord> mine({
-    int consultationsPage = 1,
-    int documentsPage = 1,
-  }) async =>
-      _record;
+  Future<PatientRecord> mine({int consultationsPage = 1, int? perPage}) async {
+    requestedPages.add(consultationsPage);
+    requestedPerPage = perPage;
+    return _record;
+  }
+
+  /// Pages demandées à l'API, dans l'ordre.
+  final List<int> requestedPages = [];
+  int? requestedPerPage;
 }
 
 const _defaultRecord = PatientRecord(
@@ -144,21 +194,19 @@ const _defaultRecord = PatientRecord(
         reason: 'Douleurs thoraciques à l\'effort',
         diagnosis: 'Angor stable',
         prescription: 'Bêtabloquant, contrôle dans 3 mois.',
-      ),
-    ],
-  ),
-  documents: RecordPage(
-    total: 1,
-    items: [
-      MedicalDocumentItem(
-        id: 2,
-        type: 'prescription',
-        typeLabel: 'Ordonnance',
-        title: 'Ordonnance — traitement antipaludéen',
-        isImage: false,
-        isPdf: true,
-        fileUrl: '/api/v1/medical-documents/2/file?expires=1&signature=x',
-        issuedAt: '2025-11-15',
+        documents: [
+          MedicalDocumentItem(
+            id: 2,
+            consultationId: 4,
+            type: 'prescription',
+            typeLabel: 'Ordonnance',
+            title: 'Ordonnance — traitement antipaludéen',
+            isImage: false,
+            isPdf: true,
+            fileUrl: '/api/v1/medical-documents/2/file?expires=1&signature=x',
+            issuedAt: '2025-11-15',
+          ),
+        ],
       ),
     ],
   ),

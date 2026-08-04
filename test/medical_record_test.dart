@@ -32,15 +32,18 @@ void main() {
     expect(session.user.role, 'patient');
     api.token = session.token;
 
-    // Le patient charge son propre dossier (pas d'identifiant : /my/...).
-    final record = await records.mine();
+    // Le patient charge son propre dossier (pas d'identifiant : /my/...),
+    // avec la taille de page qu'utilise l'écran.
+    final record = await records.mine(perPage: 5);
 
     expect(record.patient.name, isNotNull);
     expect(record.record, isNotNull,
         reason: 'le patient seedé a une fiche médicale renseignée');
     expect(record.record!.bloodType, isNotNull);
-    // Les deux listes paginées du dossier se lisent (page 1 par défaut).
+    // L'historique des consultations se lit, et l'API honore `per_page` :
+    // c'est lui qui déclenche la pagination à partir de 5 consultations.
     expect(record.consultations.currentPage, 1);
+    expect(record.consultations.items.length, lessThanOrEqualTo(5));
     expect(record.consultations.total,
         greaterThanOrEqualTo(record.consultations.items.length));
     expect(record.documents.items, isNotEmpty,

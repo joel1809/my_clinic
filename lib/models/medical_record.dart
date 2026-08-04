@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 import 'insurance.dart';
 
 /// Dossier médical d'un patient, vu par un médecin ou un administrateur
@@ -125,6 +127,22 @@ class ConsultationItem {
             .map((d) => MedicalDocumentItem.fromJson(d as Map<String, dynamic>))
             .toList(),
       );
+
+  DateTime? get date =>
+      consultedAt == null ? null : DateTime.tryParse(consultedAt!);
+
+  /// Libellé long de la date, ex. « 20 mai 2026 » ; `null` si la consultation
+  /// n'est pas datée.
+  String? get longDateLabel {
+    final date = this.date;
+    return date == null ? null : DateFormat('d MMMM yyyy', 'fr_FR').format(date);
+  }
+
+  /// Libellé court de la date, ex. « 20 mai 2026 ».
+  String? get shortDateLabel {
+    final date = this.date;
+    return date == null ? null : DateFormat('d MMM yyyy', 'fr_FR').format(date);
+  }
 }
 
 /// Identité du patient concerné.

@@ -9,39 +9,35 @@ class MedicalRecordRepository {
 
   /// Dossier d'un patient donné (médecin qui le suit ou administrateur).
   ///
-  /// Les consultations et les documents sont paginés indépendamment :
-  /// [consultationsPage] et [documentsPage] choisissent la page de chaque
-  /// liste (10 éléments par page côté API).
+  /// [consultationsPage] choisit la page de l'historique des consultations et
+  /// [perPage] sa taille (l'API plafonne à 50).
   Future<PatientRecord> record(
     int patientId, {
     int consultationsPage = 1,
-    int documentsPage = 1,
+    int? perPage,
   }) =>
       _fetch(
         '/patients/$patientId/medical-record',
         consultationsPage: consultationsPage,
-        documentsPage: documentsPage,
+        perPage: perPage,
       );
 
   /// Dossier du patient connecté (lecture seule).
-  Future<PatientRecord> mine({
-    int consultationsPage = 1,
-    int documentsPage = 1,
-  }) =>
+  Future<PatientRecord> mine({int consultationsPage = 1, int? perPage}) =>
       _fetch(
         '/my/medical-record',
         consultationsPage: consultationsPage,
-        documentsPage: documentsPage,
+        perPage: perPage,
       );
 
   Future<PatientRecord> _fetch(
     String path, {
     required int consultationsPage,
-    required int documentsPage,
+    int? perPage,
   }) async {
     final json = await _api.get(path, query: {
       if (consultationsPage > 1) 'consultations_page': '$consultationsPage',
-      if (documentsPage > 1) 'documents_page': '$documentsPage',
+      if (perPage != null) 'per_page': '$perPage',
     }) as Map<String, dynamic>;
 
     return PatientRecord.fromJson(json['data'] as Map<String, dynamic>);

@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/app_config.dart';
 import '../../models/insurance.dart';
 import '../../models/medical_record.dart';
 import '../../repositories/medical_record_repository.dart';
 import '../../theme.dart';
 import '../../widgets/shared.dart';
-import 'document_viewer_screen.dart';
+import 'consultation_detail_screen.dart';
 
 /// Dossier médical, en lecture seule : synthèse clinique (groupe sanguin,
-/// allergies, antécédents, traitements), historique paginé des consultations
-/// et documents paginés (analyses, ordonnances, radios…).
+/// allergies, antécédents, traitements) et historique paginé des
+/// consultations, chacune donnant accès à ses documents joints (analyses,
+/// ordonnances, radios…).
 ///
 /// Deux usages : un médecin ou un administrateur consulte le dossier d'un
 /// patient qu'il suit (`patientId` fourni) ; un patient consulte son propre
@@ -39,11 +38,14 @@ class MedicalRecordScreen extends StatefulWidget {
 }
 
 class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
+  /// Consultations par page : au-delà, la liste passe en pages numérotées
+  /// plutôt que de s'allonger indéfiniment sous la fiche médicale.
+  static const _perPage = 5;
+
   late Future<PatientRecord> _future;
 
-  /// Pages courantes des deux listes paginées du dossier.
+  /// Page courante de l'historique des consultations.
   int _consultationsPage = 1;
-  int _documentsPage = 1;
 
   /// Dernier dossier reçu, gardé affiché pendant le chargement d'une autre
   /// page : la liste ne repasse pas par un squelette à chaque pagination.
@@ -60,12 +62,12 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
     _future = widget.patientId == null
         ? repository.mine(
             consultationsPage: _consultationsPage,
-            documentsPage: _documentsPage,
+            perPage: _perPage,
           )
         : repository.record(
             widget.patientId!,
             consultationsPage: _consultationsPage,
-            documentsPage: _documentsPage,
+            perPage: _perPage,
           );
   }
 
@@ -76,93 +78,14 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
     });
   }
 
-  void _openDocumentsPage(int page) {
-    setState(() {
-      _documentsPage = page;
-      _load();
-    });
-  }
-
-  /// Ouvre un document dans l'application : les images en plein écran,
-  /// les PDF dans le lecteur intégré. Les autres formats (rares) s'ouvrent
-  /// dans le navigateur via l'URL signée.
-  Future<void> _openDocument(MedicalDocumentItem document) async {
-    // L'adresse vient de l'API : on refuse tout ce qui sortirait du backend
-    // plutôt que de l'ouvrir aveuglément.
-    final uri = AppConfig.mediaUri(document.fileUrl);
-    if (uri == null) {
-      if (mounted) {
-        showError(context, 'Ce document a une adresse inattendue.');
-      }
-      return;
-    }
-    final url = uri.toString();
-
-    if (document.isImage) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => Dialog(
-          insetPadding: const EdgeInsets.all(16),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              InteractiveViewer(
-                child: Image.network(
-                  url,
-                  fit: BoxFit.contain,
-                  loadingBuilder: (context, child, progress) =>
-                      progress == null
-                          ? child
-                          : const Padding(
-                              padding: EdgeInsets.all(48),
-                              child: Center(
-                                  child: CircularProgressIndicator()),
-                            ),
-                  errorBuilder: (_, _, _) => const Padding(
-                    padding: EdgeInsets.all(48),
-                    child: Text('Impossible de charger l\'image.'),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: IconButton.filledTonal(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (document.isPdf) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => DocumentViewerScreen(
-            title: document.title,
-            url: url,
-          ),
-        ),
-      );
-      return;
-    }
-
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
+  /// Ouvre le détail d'une consultation : le contenu vient de la liste déjà
+  /// chargée, l'écran s'ouvre donc sans nouvel appel réseau.
+  void _openConsultation(ConsultationItem consultation) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ConsultationDetailScreen(consultation: consultation),
+      ),
     );
-    if (!launched && mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: const Text('Impossible d\'ouvrir le document.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ));
-    }
   }
 
   @override
@@ -243,7 +166,7 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
                     padding: const EdgeInsets.only(bottom: AppSpacing.gap),
                     child: _ConsultationCard(
                       consultation: consultation,
-                      onOpenDocument: _openDocument,
+                      onTap: () => _openConsultation(consultation),
                     ),
                   ),
                 PaginationBar(
@@ -251,28 +174,6 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
                   lastPage: record.consultations.lastPage,
                   enabled: !loading,
                   onPageSelected: _openConsultationsPage,
-                ),
-              ],
-              const SizedBox(height: 28),
-              SectionHeader(title: 'Documents (${record.documents.total})'),
-              if (record.documents.items.isEmpty)
-                const _PlaceholderCard(
-                  message: 'Aucun document dans ce dossier.',
-                )
-              else ...[
-                for (final document in record.documents.items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.gap),
-                    child: _DocumentCard(
-                      document: document,
-                      onOpen: () => _openDocument(document),
-                    ),
-                  ),
-                PaginationBar(
-                  currentPage: record.documents.currentPage,
-                  lastPage: record.documents.lastPage,
-                  enabled: !loading,
-                  onPageSelected: _openDocumentsPage,
                 ),
               ],
             ],
@@ -468,153 +369,27 @@ class _RecordRow extends StatelessWidget {
 
 /// Consultation passée : date et médecin, puis motif, diagnostic et
 /// prescription renseignés, et enfin les documents joints, ouvrables d'un
-/// geste comme ceux de la section « Documents ».
+/// geste vers son détail.
 class _ConsultationCard extends StatelessWidget {
-  const _ConsultationCard({
-    required this.consultation,
-    required this.onOpenDocument,
-  });
+  const _ConsultationCard({required this.consultation, required this.onTap});
 
   final ConsultationItem consultation;
-  final void Function(MedicalDocumentItem) onOpenDocument;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final documentCount = consultation.documents.length;
 
-    String? dateLabel;
-    if (consultation.consultedAt != null) {
-      final date = DateTime.tryParse(consultation.consultedAt!);
-      if (date != null) {
-        dateLabel = DateFormat('d MMMM yyyy', 'fr_FR').format(date);
-      }
-    }
-
-    final fields = [
-      ('Motif', consultation.reason),
-      ('Diagnostic', consultation.diagnosis),
-      ('Prescription', consultation.prescription),
-    ].where((field) => field.$2?.trim().isNotEmpty ?? false);
+    // Aperçu du compte rendu : le motif, à défaut le diagnostic. Le détail
+    // porte l'ensemble, la carte n'en donne que de quoi se repérer.
+    final summary = [consultation.reason, consultation.diagnosis]
+        .firstWhere((value) => value?.trim().isNotEmpty ?? false,
+            orElse: () => null)
+        ?.trim();
 
     return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppPalette.primarySoft,
-                  borderRadius: BorderRadius.circular(AppRadius.control),
-                ),
-                child: Icon(Icons.medical_services_outlined,
-                    color: AppPalette.primary, size: 21),
-              ),
-              const SizedBox(width: AppSpacing.gap),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(dateLabel ?? 'Consultation', style: text.titleSmall),
-                    const SizedBox(height: 2),
-                    Text(
-                      [consultation.doctor, consultation.specialty]
-                          .where((part) => part.isNotEmpty)
-                          .join(' · '),
-                      style: text.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          for (final (label, value) in fields)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.gap),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: text.bodySmall),
-                  const SizedBox(height: 2),
-                  Text(value!.trim(), style: text.bodyLarge),
-                ],
-              ),
-            ),
-          if (consultation.documents.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: AppSpacing.gap),
-              child: Divider(height: 1),
-            ),
-            for (final document in consultation.documents)
-              InkWell(
-                onTap: () => onOpenDocument(document),
-                borderRadius: BorderRadius.circular(AppRadius.control),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.attach_file_rounded,
-                          size: 17, color: AppPalette.primary),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          document.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: text.bodyMedium
-                              ?.copyWith(color: AppPalette.primary),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        document.isImage || document.isPdf
-                            ? Icons.visibility_outlined
-                            : Icons.open_in_new_rounded,
-                        size: 17,
-                        color: AppPalette.inkFaint,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _DocumentCard extends StatelessWidget {
-  const _DocumentCard({required this.document, required this.onOpen});
-
-  final MedicalDocumentItem document;
-  final VoidCallback onOpen;
-
-  IconData get _icon => switch (document.type) {
-        'analysis_result' => Icons.biotech_outlined,
-        'prescription' => Icons.receipt_long_outlined,
-        'radiography' => Icons.broken_image_outlined,
-        _ => Icons.description_outlined,
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-
-    String? issuedLabel;
-    if (document.issuedAt != null) {
-      final date = DateTime.tryParse(document.issuedAt!);
-      if (date != null) {
-        issuedLabel = DateFormat('d MMM yyyy', 'fr_FR').format(date);
-      }
-    }
-
-    return AppCard(
-      onTap: onOpen,
-      padding: const EdgeInsets.all(AppSpacing.gap),
+      onTap: onTap,
       child: Row(
         children: [
           Container(
@@ -625,35 +400,55 @@ class _DocumentCard extends StatelessWidget {
               color: AppPalette.primarySoft,
               borderRadius: BorderRadius.circular(AppRadius.control),
             ),
-            child: Icon(_icon, color: AppPalette.primary, size: 21),
+            child: Icon(Icons.medical_services_outlined,
+                color: AppPalette.primary, size: 21),
           ),
           const SizedBox(width: AppSpacing.gap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  document.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.titleSmall,
-                ),
+                Text(consultation.longDateLabel ?? 'Consultation',
+                    style: text.titleSmall),
                 const SizedBox(height: 2),
                 Text(
-                  [document.typeLabel, ?issuedLabel].join(' · '),
+                  [consultation.doctor, consultation.specialty]
+                      .where((part) => part.isNotEmpty)
+                      .join(' · '),
                   style: text.bodySmall,
                 ),
+                if (summary != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodyMedium,
+                  ),
+                ],
+                if (documentCount > 0) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.attach_file_rounded,
+                          size: 15, color: AppPalette.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        documentCount > 1
+                            ? '$documentCount documents'
+                            : '1 document',
+                        style: text.labelMedium
+                            ?.copyWith(color: AppPalette.primary),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 6),
-          Icon(
-            document.isImage || document.isPdf
-                ? Icons.visibility_outlined
-                : Icons.open_in_new_rounded,
-            size: 19,
-            color: AppPalette.inkFaint,
-          ),
+          Icon(Icons.chevron_right_rounded,
+              size: 20, color: AppPalette.inkFaint),
         ],
       ),
     );
