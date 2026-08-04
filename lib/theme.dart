@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 ///
 /// Couleur de marque reprise du site web (--primary-color: #4F6BD6).
 ThemeData buildTheme() {
-  const seed = AppPalette.primary;
+  final seed = AppPalette.primary;
 
   final scheme = ColorScheme.fromSeed(
     seedColor: seed,
@@ -58,7 +58,7 @@ ThemeData buildTheme() {
       scrolledUnderElevation: 0.5,
       shadowColor: AppPalette.shadow,
       titleTextStyle: text.titleLarge,
-      iconTheme: const IconThemeData(color: AppPalette.ink, size: 22),
+      iconTheme: IconThemeData(color: AppPalette.ink, size: 22),
     ),
     cardTheme: CardThemeData(
       elevation: 0,
@@ -178,7 +178,7 @@ TextTheme _buildTextTheme() {
     required FontWeight weight,
     required double height,
     double spacing = 0,
-    Color color = AppPalette.ink,
+    Color? color,
   }) =>
       TextStyle(
         fontFamily: family,
@@ -186,7 +186,8 @@ TextTheme _buildTextTheme() {
         fontWeight: weight,
         height: height,
         letterSpacing: spacing,
-        color: color,
+        // Texte principal par défaut, dans la couleur des titres du site.
+        color: color ?? AppPalette.ink,
       );
 
   return TextTheme(
@@ -230,15 +231,41 @@ TextTheme _buildTextTheme() {
 }
 
 /// Couleurs du système de design.
+///
+/// Les couleurs de marque (bleu primaire, couleurs de texte) sont celles que
+/// l'administrateur choisit dans « Paramètres du site » : l'API `/branding`
+/// les renvoie au démarrage et [applyBrand] les installe ici, pour que toute
+/// l'application suive la charte du site. Les valeurs par défaut ci-dessous
+/// restent en place tant qu'aucune charte n'a été reçue.
 abstract final class AppPalette {
-  /// Bleu de marque, repris du site web.
-  static const primary = Color(0xFF4F6BD6);
+  /// Bleu de marque par défaut, repris du site web.
+  static const defaultPrimary = Color(0xFF4F6BD6);
+  static const _defaultPrimaryDeep = Color(0xFF3A50AC);
+  static const _defaultPrimarySoft = Color(0xFFEEF1FC);
+
+  /// Texte principal par défaut : un bleu-noir plutôt qu'un noir pur, moins
+  /// dur à l'œil.
+  static const defaultInk = Color(0xFF141A2E);
+
+  /// Texte secondaire par défaut.
+  static const defaultInkMuted = Color(0xFF5C6480);
+  static const _defaultInkFaint = Color(0xFF98A0B8);
+
+  static Color _primary = defaultPrimary;
+  static Color _primaryDeep = _defaultPrimaryDeep;
+  static Color _primarySoft = _defaultPrimarySoft;
+  static Color _ink = defaultInk;
+  static Color _inkMuted = defaultInkMuted;
+  static Color _inkFaint = _defaultInkFaint;
+
+  /// Couleur de marque.
+  static Color get primary => _primary;
 
   /// Variante sombre, pour les dégradés et les états pressés.
-  static const primaryDeep = Color(0xFF3A50AC);
+  static Color get primaryDeep => _primaryDeep;
 
   /// Fond très clair des zones teintées (bandeaux, pastilles).
-  static const primarySoft = Color(0xFFEEF1FC);
+  static Color get primarySoft => _primarySoft;
 
   /// Accent secondaire, réservé aux confirmations et aux illustrations.
   static const accent = Color(0xFF2BB3A3);
@@ -247,14 +274,45 @@ abstract final class AppPalette {
   /// cartes blanches sans les faire flotter.
   static const canvas = Color(0xFFF6F8FC);
 
-  /// Texte principal : un bleu-noir plutôt qu'un noir pur, moins dur à l'œil.
-  static const ink = Color(0xFF141A2E);
+  /// Texte principal.
+  static Color get ink => _ink;
 
   /// Texte secondaire.
-  static const inkMuted = Color(0xFF5C6480);
+  static Color get inkMuted => _inkMuted;
 
   /// Texte tertiaire : légendes, intitulés de section.
-  static const inkFaint = Color(0xFF98A0B8);
+  static Color get inkFaint => _inkFaint;
+
+  /// Installe les couleurs de la charte du site.
+  ///
+  /// Les déclinaisons (variante sombre, fond teinté, texte tertiaire) sont
+  /// dérivées de la couleur reçue : l'administrateur ne choisit que trois
+  /// couleurs, mais l'interface en utilise davantage. Un paramètre `null`
+  /// laisse la couleur par défaut du système de design.
+  ///
+  /// Les écrans lisent ces couleurs à la construction : appeler cette méthode
+  /// suppose donc de reconstruire l'arbre (voir `MyClinicApp`).
+  static void applyBrand({Color? primary, Color? heading, Color? text}) {
+    _primary = primary ?? defaultPrimary;
+    // Le bleu du site a des déclinaisons dessinées à la main : on ne les
+    // recalcule que si l'administrateur a réellement choisi une autre couleur.
+    final custom = _primary != defaultPrimary;
+    _primaryDeep = custom ? _shade(_primary, .78) : _defaultPrimaryDeep;
+    _primarySoft =
+        custom ? Color.lerp(_primary, Colors.white, .92)! : _defaultPrimarySoft;
+
+    _ink = heading ?? defaultInk;
+    _inkMuted = text ?? defaultInkMuted;
+    _inkFaint = text == null
+        ? _defaultInkFaint
+        : Color.lerp(_inkMuted, Colors.white, .45)!;
+  }
+
+  /// Éclaircit ou assombrit une couleur en conservant sa teinte.
+  static Color _shade(Color color, double factor) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withLightness((hsl.lightness * factor).clamp(0.0, 1.0)).toColor();
+  }
 
   /// Bordure des champs et des boutons secondaires.
   static const border = Color(0xFFDDE2EE);

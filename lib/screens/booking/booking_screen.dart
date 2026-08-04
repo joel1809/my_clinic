@@ -687,10 +687,10 @@ class _DayCard extends StatelessWidget {
             ),
           ),
           if (day.available)
-            const Icon(Icons.chevron_right_rounded,
+            Icon(Icons.chevron_right_rounded,
                 size: 22, color: AppPalette.inkFaint)
           else
-            const Icon(Icons.event_busy_outlined,
+            Icon(Icons.event_busy_outlined,
                 size: 19, color: AppPalette.inkFaint),
         ],
       ),
@@ -715,7 +715,7 @@ class _SelectedDayBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.event_available_rounded,
+          Icon(Icons.event_available_rounded,
               size: 19, color: AppPalette.primary),
           const SizedBox(width: 10),
           Expanded(
@@ -1065,7 +1065,7 @@ class _SummaryRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     height: 1.35,
                     color: AppPalette.ink,

@@ -248,7 +248,7 @@ class _ScheduleCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      const Icon(Icons.schedule_rounded,
+                      Icon(Icons.schedule_rounded,
                           size: 14, color: AppPalette.inkFaint),
                       const SizedBox(width: 5),
                       Text(

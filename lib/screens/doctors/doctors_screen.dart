@@ -250,7 +250,7 @@ class _DoctorCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.schedule_rounded,
+                      Icon(Icons.schedule_rounded,
                           size: 13, color: AppPalette.inkFaint),
                       const SizedBox(width: 5),
                       Text(
@@ -264,7 +264,7 @@ class _DoctorCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          const Icon(Icons.chevron_right_rounded,
+          Icon(Icons.chevron_right_rounded,
               color: AppPalette.inkFaint, size: 22),
         ],
       ),

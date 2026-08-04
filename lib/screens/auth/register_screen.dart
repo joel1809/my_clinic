@@ -193,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           labelText: 'Date de naissance',
                           prefixIcon: const Icon(Icons.cake_outlined),
                           errorText: _fieldError('birth_date'),
-                          suffixIcon: const Icon(Icons.expand_more_rounded,
+                          suffixIcon: Icon(Icons.expand_more_rounded,
                               size: 20, color: AppPalette.inkFaint),
                         ),
                         child: Text(

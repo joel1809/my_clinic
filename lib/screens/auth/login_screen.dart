@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_exception.dart';
 import '../../state/auth_state.dart';
 import '../../theme.dart';
+import '../../widgets/brand_logo.dart';
 import '../../widgets/shared.dart';
 import 'register_screen.dart';
 
@@ -38,9 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
     try {
       await context.read<AuthState>().login(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
       // La navigation est gérée par _RootGate quand l'état change
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -64,115 +65,116 @@ class _LoginScreenState extends State<LoginScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: FadeSlideIn(
-                  child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Logo du site web (assets/images/logo.png)
-                    Image.asset(
-                      'assets/images/logo.png',
-                      height: 52,
-                      fit: BoxFit.contain,
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      'Bon retour',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Connectez-vous pour prendre rendez-vous et suivre vos consultations.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 32),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(
-                        labelText: 'Adresse e-mail',
-                        prefixIcon: Icon(Icons.mail_outline),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Logo de la clinique, tel qu'administré sur le site
+                      const BrandLogo(height: 104),
+                      const SizedBox(height: 56),
+                      Text(
+                        'Bon retour',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium,
                       ),
-                      validator: (value) {
-                        final apiError = _apiErrors['email']?.firstOrNull;
-                        if (apiError != null) return apiError;
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Veuillez indiquer votre adresse e-mail.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscure,
-                      autofillHints: const [AutofillHints.password],
-                      decoration: InputDecoration(
-                        labelText: 'Mot de passe',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
-                          onPressed: () =>
-                              setState(() => _obscure = !_obscure),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Connectez-vous pour prendre rendez-vous et suivre vos consultations.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 32),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
+                        decoration: const InputDecoration(
+                          labelText: 'Adresse e-mail',
+                          prefixIcon: Icon(Icons.mail_outline),
                         ),
+                        validator: (value) {
+                          final apiError = _apiErrors['email']?.firstOrNull;
+                          if (apiError != null) return apiError;
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Veuillez indiquer votre adresse e-mail.';
+                          }
+                          return null;
+                        },
                       ),
-                      onFieldSubmitted: (_) => _loading ? null : _submit(),
-                      validator: (value) {
-                        final apiError = _apiErrors['password']?.firstOrNull;
-                        if (apiError != null) return apiError;
-                        if (value == null || value.isEmpty) {
-                          return 'Veuillez indiquer votre mot de passe.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 28),
-                    FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      child: _loading
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2.5, color: Colors.white),
-                            )
-                          : const Text('Se connecter'),
-                    ),
-                    const SizedBox(height: AppSpacing.page),
-                    // Séparateur discret avant l'action secondaire : la page
-                    // se lit en deux temps, se connecter puis s'inscrire.
-                    Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'ou',
-                            style: Theme.of(context).textTheme.bodySmall,
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscure,
+                        autofillHints: const [AutofillHints.password],
+                        decoration: InputDecoration(
+                          labelText: 'Mot de passe',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscure
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscure = !_obscure),
                           ),
                         ),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.page),
-                    OutlinedButton(
-                      onPressed: _loading
-                          ? null
-                          : () => Navigator.of(context).push(
+                        onFieldSubmitted: (_) => _loading ? null : _submit(),
+                        validator: (value) {
+                          final apiError = _apiErrors['password']?.firstOrNull;
+                          if (apiError != null) return apiError;
+                          if (value == null || value.isEmpty) {
+                            return 'Veuillez indiquer votre mot de passe.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 28),
+                      FilledButton(
+                        onPressed: _loading ? null : _submit,
+                        child: _loading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Se connecter'),
+                      ),
+                      const SizedBox(height: AppSpacing.page),
+                      // Séparateur discret avant l'action secondaire : la page
+                      // se lit en deux temps, se connecter puis s'inscrire.
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'ou',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.page),
+                      OutlinedButton(
+                        onPressed: _loading
+                            ? null
+                            : () => Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => const RegisterScreen(),
                                 ),
                               ),
-                      child: const Text('Créer un compte'),
-                    ),
-                  ],
+                        child: const Text('Créer un compte'),
+                      ),
+                    ],
+                  ),
                 ),
-              )),
+              ),
             ),
           ),
         ),

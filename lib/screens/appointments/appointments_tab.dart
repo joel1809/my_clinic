@@ -437,7 +437,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                           const SizedBox(height: 7),
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.schedule_rounded,
                                 size: 14,
                                 color: AppPalette.inkFaint,

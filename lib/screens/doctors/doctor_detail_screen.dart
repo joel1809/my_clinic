@@ -115,11 +115,11 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                             width: 38,
                             height: 38,
                             alignment: Alignment.center,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: AppPalette.primarySoft,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.schedule_rounded,
+                            child: Icon(Icons.schedule_rounded,
                                 size: 19, color: AppPalette.primary),
                           ),
                           const SizedBox(width: AppSpacing.gap),
@@ -144,7 +144,7 @@ class _DoctorDetailScreenState extends State<DoctorDetailScreen> {
                       const SectionHeader(title: 'À propos'),
                       Text(
                         doctor.bio!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           height: 1.65,
                           color: AppPalette.ink,

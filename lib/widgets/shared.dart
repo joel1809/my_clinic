@@ -84,7 +84,7 @@ class SpecialtyAvatar extends StatelessWidget {
       width: radius * 2,
       height: radius * 2,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppPalette.primarySoft,
         shape: BoxShape.circle,
       ),
@@ -658,7 +658,7 @@ class PaginationBar extends StatelessWidget {
         ),
         for (final page in _pages)
           if (page == null)
-            const SizedBox(
+            SizedBox(
               width: 24,
               child: Text(
                 '…',

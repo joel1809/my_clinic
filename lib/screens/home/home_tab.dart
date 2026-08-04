@@ -132,7 +132,7 @@ class _Greeting extends StatelessWidget {
             width: 46,
             height: 46,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppPalette.primarySoft,
               shape: BoxShape.circle,
             ),
@@ -159,7 +159,7 @@ class _BookingBanner extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppPalette.primary, AppPalette.primaryDeep],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

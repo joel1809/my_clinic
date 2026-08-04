@@ -6,6 +6,13 @@ tokens Sanctum).
 
 ## Fonctionnalités
 
+- **Identité visuelle synchronisée** (`GET /branding`) : le logo, le logo clair
+  et les couleurs saisis dans « Paramètres du site » habillent l'application —
+  écran de démarrage, connexion, boutons, accents et couleurs de texte. La
+  charte est mise en cache et relue avant le premier écran (démarrage déjà aux
+  bonnes couleurs, même hors ligne), puis revalidée à chaque lancement avec
+  l'ETag renvoyé par l'API : 304 tant que rien n'a changé, et purge des logos
+  en cache dès que la version change.
 - **Compte patient** : inscription, connexion, déconnexion, session persistante,
   consultation et modification du profil (identité, téléphone, sexe, date de
   naissance, adresse).
@@ -47,6 +54,27 @@ tokens Sanctum).
    flutter run
    ```
 
+### Icône de lancement et logos embarqués
+
+Les logos affichés **dans** l'application suivent le site tout seuls, via l'API
+`/branding`. En revanche l'**icône de l'application** — celle de la liste des
+applications du téléphone — fait partie du paquet installé : elle ne peut pas
+changer à chaud. Après un changement de logo dans « Paramètres du site », il
+faut donc la régénérer et reconstruire :
+
+```bash
+php artisan serve                      # côté backend
+dart run tool/update_brand_assets.dart # récupère logos + emblème du site
+dart run flutter_launcher_icons        # génère les icônes Android et iOS
+flutter build apk                      # ou flutter run
+```
+
+`tool/update_brand_assets.dart` reprend le logo, le logo clair et le favicon
+de la charte : les deux premiers deviennent les images de repli embarquées
+(affichées avant la réponse de l'API), le favicon devient l'icône de
+lancement. Si le backend n'est pas sur `localhost:8000` :
+`dart run tool/update_brand_assets.dart --url=http://192.168.100.12:8000`.
+
 ### URL du backend
 
 Par défaut :
@@ -77,7 +105,7 @@ lib/
 ├── core/           # Configuration, client HTTP, exceptions, stockage du token
 ├── models/         # Modèles calqués sur les Resources de l'API (User, Doctor, ...)
 ├── repositories/   # Appels à l'API v1 (auth, catalogue, rendez-vous, articles)
-├── state/          # AuthState (Provider) : session, profil, déconnexion sur 401
+├── state/          # Provider : AuthState (session, 401) et BrandingState (charte)
 ├── screens/        # Écrans par domaine (auth, home, doctors, booking, ...)
 └── widgets/        # Composants partagés (erreurs, vues vides, images réseau)
 ```

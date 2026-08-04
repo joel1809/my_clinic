@@ -9,6 +9,7 @@ import 'core/session_store.dart';
 import 'repositories/appointment_repository.dart';
 import 'repositories/article_repository.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/branding_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/medical_record_repository.dart';
 import 'repositories/popup_repository.dart';
@@ -16,7 +17,9 @@ import 'repositories/schedule_repository.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_shell.dart';
 import 'state/auth_state.dart';
+import 'state/branding_state.dart';
 import 'theme.dart';
+import 'widgets/brand_logo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,8 +43,16 @@ Future<void> main() async {
   final store = SessionStore();
   final authRepository = AuthRepository(api);
 
+  // Identité visuelle de la clinique : la dernière connue est relue avant le
+  // premier rendu, pour que l'écran de démarrage porte déjà ses couleurs et
+  // son logo. La revalidation auprès de l'API se fait ensuite (voir
+  // `_RootGate`), sans retarder l'affichage.
+  final brandingState = BrandingState(BrandingRepository(api));
+  await brandingState.loadCached();
+
   runApp(MyClinicApp(
     authState: AuthState(api: api, repository: authRepository, store: store),
+    brandingState: brandingState,
     catalogRepository: CatalogRepository(api),
     appointmentRepository: AppointmentRepository(api),
     articleRepository: ArticleRepository(api),
@@ -55,6 +66,7 @@ class MyClinicApp extends StatelessWidget {
   const MyClinicApp({
     super.key,
     required this.authState,
+    required this.brandingState,
     required this.catalogRepository,
     required this.appointmentRepository,
     required this.articleRepository,
@@ -64,6 +76,7 @@ class MyClinicApp extends StatelessWidget {
   });
 
   final AuthState authState;
+  final BrandingState brandingState;
   final CatalogRepository catalogRepository;
   final AppointmentRepository appointmentRepository;
   final ArticleRepository articleRepository;
@@ -76,6 +89,7 @@ class MyClinicApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: authState),
+        ChangeNotifierProvider.value(value: brandingState),
         Provider.value(value: catalogRepository),
         Provider.value(value: appointmentRepository),
         Provider.value(value: articleRepository),
@@ -83,18 +97,26 @@ class MyClinicApp extends StatelessWidget {
         Provider.value(value: scheduleRepository),
         Provider.value(value: popupRepository),
       ],
-      child: MaterialApp(
-        title: 'Medolia',
-        debugShowCheckedModeBanner: false,
-        theme: buildTheme(),
-        locale: const Locale('fr'),
-        supportedLocales: const [Locale('fr'), Locale('en')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: const _RootGate(),
+      child: Consumer<BrandingState>(
+        // La charte du site pilote les couleurs du système de design, que les
+        // écrans lisent dans `AppPalette` : changer de charte demande donc de
+        // reconstruire l'arbre entier, d'où la clé portée par l'application.
+        // Cela n'arrive qu'au premier lancement et après une modification
+        // faite par l'administrateur.
+        builder: (context, branding, _) => MaterialApp(
+          key: ValueKey(branding.version),
+          title: branding.siteName,
+          debugShowCheckedModeBanner: false,
+          theme: buildTheme(),
+          locale: const Locale('fr'),
+          supportedLocales: const [Locale('fr'), Locale('en')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const _RootGate(),
+        ),
       ),
     );
   }
@@ -114,6 +136,9 @@ class _RootGateState extends State<_RootGate> {
     super.initState();
     // Restaure le token enregistré puis charge le profil
     context.read<AuthState>().restore();
+    // Revalide l'identité visuelle : l'API répond 304 tant que la clinique
+    // n'a changé ni son logo ni ses couleurs.
+    context.read<BrandingState>().refresh();
   }
 
   @override
@@ -140,7 +165,7 @@ class _SplashScreen extends StatelessWidget {
     return Container(
       // Dégradé de marque plutôt qu'un aplat : l'écran d'attente donne déjà
       // le ton du reste de l'application.
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [AppPalette.primary, AppPalette.primaryDeep],
           begin: Alignment.topLeft,
@@ -153,12 +178,8 @@ class _SplashScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Logo blanc du site web, lisible sur le fond bleu primaire
-              Image.asset(
-                'assets/images/logo_white.png',
-                width: 200,
-                fit: BoxFit.contain,
-              ),
+              // Logo clair de la clinique, lisible sur le fond de marque
+              const BrandLogo(width: 200, onDark: true),
               const SizedBox(height: 36),
               const SizedBox(
                 width: 26,

@@ -36,6 +36,29 @@ class ApiClient {
   Future<dynamic> get(String path, {Map<String, String>? query}) =>
       _send(() => _http.get(_uri(path, query), headers: _headers));
 
+  /// GET conditionnel : joint l'[etag] détenu localement et renvoie `null`
+  /// quand le serveur répond 304, c'est-à-dire quand ce que l'application a
+  /// déjà en cache est encore à jour (aucune charge utile retéléchargée).
+  Future<ConditionalResponse?> getIfChanged(
+    String path, {
+    String? etag,
+  }) async {
+    final response = await _perform(() => _http.get(
+          _uri(path),
+          headers: {
+            ..._headers,
+            if (etag != null && etag.isNotEmpty) 'If-None-Match': etag,
+          },
+        ));
+
+    if (response.statusCode == HttpStatus.notModified) return null;
+
+    return ConditionalResponse(
+      _decode(response),
+      etag: response.headers['etag'],
+    );
+  }
+
   Future<dynamic> post(String path, {Object? body}) => _send(() =>
       _http.post(_uri(path), headers: _headers, body: jsonEncode(body ?? {})));
 
@@ -45,10 +68,15 @@ class ApiClient {
   Future<dynamic> delete(String path) =>
       _send(() => _http.delete(_uri(path), headers: _headers));
 
-  Future<dynamic> _send(Future<http.Response> Function() request) async {
-    http.Response response;
+  Future<dynamic> _send(Future<http.Response> Function() request) async =>
+      _decode(await _perform(request));
+
+  /// Exécute la requête et ramène toute panne de transport (tunnel coupé,
+  /// Wi-Fi perdu, délai dépassé) à une [NetworkException].
+  Future<http.Response> _perform(
+      Future<http.Response> Function() request) async {
     try {
-      response = await request().timeout(const Duration(seconds: 20));
+      return await request().timeout(const Duration(seconds: 20));
     } on SocketException {
       throw const NetworkException();
     } on HttpException {
@@ -57,7 +85,10 @@ class ApiClient {
       if (e is ApiException) rethrow;
       throw const NetworkException();
     }
+  }
 
+  /// Corps décodé d'une réponse, ou exception typée si l'API a refusé.
+  dynamic _decode(http.Response response) {
     final dynamic decoded;
     try {
       decoded = response.body.isEmpty
@@ -91,4 +122,13 @@ class ApiClient {
       errors: errors,
     );
   }
+}
+
+/// Réponse d'un GET conditionnel : le corps décodé et l'ETag à renvoyer au
+/// prochain appel pour obtenir un 304 tant que rien n'a changé.
+class ConditionalResponse {
+  const ConditionalResponse(this.body, {this.etag});
+
+  final dynamic body;
+  final String? etag;
 }

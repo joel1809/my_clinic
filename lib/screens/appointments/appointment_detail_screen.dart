@@ -221,7 +221,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                       width: 46,
                       height: 46,
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppPalette.primarySoft,
                         shape: BoxShape.circle,
                       ),

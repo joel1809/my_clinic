@@ -179,7 +179,7 @@ class _ProfileHeader extends StatelessWidget {
           height: 68,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [AppPalette.primary, AppPalette.primaryDeep],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -273,19 +273,22 @@ class _ActionTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.tint = AppPalette.primary,
+    this.tint,
     this.busy = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final Color tint;
+
+  /// Couleur de l'icône ; la couleur de marque par défaut.
+  final Color? tint;
   final bool busy;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final tint = this.tint ?? AppPalette.primary;
 
     return InkWell(
       onTap: onTap,
@@ -311,7 +314,7 @@ class _ActionTile extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
+            Icon(Icons.chevron_right_rounded,
                 size: 20, color: AppPalette.inkFaint),
           ],
         ),

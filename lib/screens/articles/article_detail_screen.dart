@@ -97,7 +97,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     const SizedBox(height: AppSpacing.gap),
                     Row(
                       children: [
-                        const Icon(Icons.person_outline,
+                        Icon(Icons.person_outline,
                             size: 15, color: AppPalette.inkFaint),
                         const SizedBox(width: 5),
                         Text(
@@ -106,7 +106,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         ),
                         if (article.publishedAt != null) ...[
                           const SizedBox(width: 14),
-                          const Icon(Icons.calendar_today_outlined,
+                          Icon(Icons.calendar_today_outlined,
                               size: 13, color: AppPalette.inkFaint),
                           const SizedBox(width: 5),
                           Text(
@@ -123,7 +123,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     // continu et non à balayer.
                     Text(
                       article.plainBody,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15.5,
                         height: 1.7,
                         color: AppPalette.ink,

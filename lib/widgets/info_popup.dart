@@ -180,8 +180,8 @@ class _InfoPopupDialog extends StatelessWidget {
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: () => Navigator.of(context).pop(),
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
                     child: Icon(Icons.close_rounded,
                         size: 20, color: AppPalette.ink),
                   ),

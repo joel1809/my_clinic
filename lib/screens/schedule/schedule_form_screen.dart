@@ -173,7 +173,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                       width: 38,
                       height: 38,
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppPalette.primarySoft,
                         shape: BoxShape.circle,
                       ),
@@ -266,7 +266,7 @@ class _ScheduleFormScreenState extends State<ScheduleFormScreen> {
                         onDeleted: () => setState(() => _dates.remove(date)),
                       ),
                     ActionChip(
-                      avatar: const Icon(Icons.add_rounded,
+                      avatar: Icon(Icons.add_rounded,
                           size: 17, color: AppPalette.primary),
                       label: const Text('Ajouter une date'),
                       labelStyle: text.labelMedium
@@ -346,7 +346,7 @@ class _TimeRow extends StatelessWidget {
             horizontal: AppSpacing.gutter, vertical: 16),
         child: Row(
           children: [
-            const Icon(Icons.schedule_rounded,
+            Icon(Icons.schedule_rounded,
                 size: 20, color: AppPalette.inkFaint),
             const SizedBox(width: AppSpacing.gutter),
             Expanded(child: Text(label, style: text.bodyLarge)),
@@ -355,7 +355,7 @@ class _TimeRow extends StatelessWidget {
               style: text.titleMedium?.copyWith(color: AppPalette.primary),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.expand_more_rounded,
+            Icon(Icons.expand_more_rounded,
                 size: 18, color: AppPalette.inkFaint),
           ],
         ),
