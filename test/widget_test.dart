@@ -29,9 +29,16 @@ void main() {
     });
 
     test('Appointment.fromJson lit le médecin et le statut', () {
+      // Demain, pour que le rendez-vous reste « à venir » quel que soit le
+      // jour où le test s'exécute.
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final date = '${tomorrow.year}-'
+          '${tomorrow.month.toString().padLeft(2, '0')}-'
+          '${tomorrow.day.toString().padLeft(2, '0')}';
+
       final appointment = Appointment.fromJson({
         'id': 10,
-        'scheduled_date': '2026-08-01',
+        'scheduled_date': date,
         'start_time': '09:00',
         'end_time': '09:30',
         'reason': 'Contrôle annuel',
