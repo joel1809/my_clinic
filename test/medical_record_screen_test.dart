@@ -47,9 +47,16 @@ void main() {
     expect(find.text('Assurances'), findsOneWidget);
     expect(find.text('Assurance Alpha, Mutuelle Beta'), findsOneWidget);
 
-    // Documents : la section est plus bas que la hauteur du viewport de test,
-    // il faut faire défiler pour l'atteindre.
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    // Consultations puis documents : ces sections sont plus bas que la
+    // hauteur du viewport de test, il faut faire défiler pour les atteindre.
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CONSULTATIONS (1)'), findsOneWidget);
+    expect(find.text('Dr Kouadio N\'Guessan · Cardiologie'), findsOneWidget);
+    expect(find.text('Douleurs thoraciques à l\'effort'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
     await tester.pumpAndSettle();
 
     expect(find.text('DOCUMENTS (1)'), findsOneWidget);
@@ -57,6 +64,7 @@ void main() {
 
     // Aucun état « vide » pour ce patient.
     expect(find.textContaining('Aucune fiche médicale'), findsNothing);
+    expect(find.textContaining('Aucune consultation'), findsNothing);
     expect(find.textContaining('Aucun document'), findsNothing);
   });
 
@@ -82,6 +90,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Aucune fiche médicale'), findsOneWidget);
+    expect(find.text('CONSULTATIONS (0)'), findsOneWidget);
+    expect(find.textContaining('Aucune consultation'), findsOneWidget);
     expect(find.text('DOCUMENTS (0)'), findsOneWidget);
     expect(find.textContaining('Aucun document'), findsOneWidget);
   });
@@ -96,7 +106,11 @@ class _StubRecordRepo extends MedicalRecordRepository {
   final PatientRecord _record;
 
   @override
-  Future<PatientRecord> mine() async => _record;
+  Future<PatientRecord> mine({
+    int consultationsPage = 1,
+    int documentsPage = 1,
+  }) async =>
+      _record;
 }
 
 const _defaultRecord = PatientRecord(
@@ -112,22 +126,40 @@ const _defaultRecord = PatientRecord(
     bloodType: 'O+',
     allergies: 'Pénicilline (éruption cutanée)',
     medicalHistory: 'Hypertension artérielle diagnostiquée en 2023.',
+    surgicalHistory: 'Appendicectomie en 2010.',
     currentMedications: 'Amlodipine 5 mg, 1 comprimé par jour.',
   ),
   insurances: [
     Insurance(id: 1, name: 'Assurance Alpha'),
     Insurance(id: 2, name: 'Mutuelle Beta'),
   ],
-  documents: [
-    MedicalDocumentItem(
-      id: 2,
-      type: 'prescription',
-      typeLabel: 'Ordonnance',
-      title: 'Ordonnance — traitement antipaludéen',
-      isImage: false,
-      isPdf: true,
-      fileUrl: '/api/v1/medical-documents/2/file?expires=1&signature=x',
-      issuedAt: '2025-11-15',
-    ),
-  ],
+  consultations: RecordPage(
+    total: 1,
+    items: [
+      ConsultationItem(
+        id: 4,
+        doctor: 'Dr Kouadio N\'Guessan',
+        specialty: 'Cardiologie',
+        consultedAt: '2026-05-20',
+        reason: 'Douleurs thoraciques à l\'effort',
+        diagnosis: 'Angor stable',
+        prescription: 'Bêtabloquant, contrôle dans 3 mois.',
+      ),
+    ],
+  ),
+  documents: RecordPage(
+    total: 1,
+    items: [
+      MedicalDocumentItem(
+        id: 2,
+        type: 'prescription',
+        typeLabel: 'Ordonnance',
+        title: 'Ordonnance — traitement antipaludéen',
+        isImage: false,
+        isPdf: true,
+        fileUrl: '/api/v1/medical-documents/2/file?expires=1&signature=x',
+        issuedAt: '2025-11-15',
+      ),
+    ],
+  ),
 );

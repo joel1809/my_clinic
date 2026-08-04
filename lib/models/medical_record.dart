@@ -7,7 +7,8 @@ class PatientRecord {
     required this.patient,
     this.record,
     this.insurances = const [],
-    this.documents = const [],
+    this.consultations = const RecordPage(),
+    this.documents = const RecordPage(),
   });
 
   final RecordPatient patient;
@@ -17,7 +18,13 @@ class PatientRecord {
   /// rejoignent son dossier et y restent, s'ajoutant à celles saisies par
   /// l'administration.
   final List<Insurance> insurances;
-  final List<MedicalDocumentItem> documents;
+
+  /// Historique paginé des consultations, de la plus récente à la plus
+  /// ancienne, chacune avec ses documents joints.
+  final RecordPage<ConsultationItem> consultations;
+
+  /// Documents du dossier, paginés (page pilotée par `documents_page`).
+  final RecordPage<MedicalDocumentItem> documents;
 
   factory PatientRecord.fromJson(Map<String, dynamic> json) => PatientRecord(
         patient:
@@ -29,9 +36,93 @@ class PatientRecord {
         insurances: (json['insurances'] as List? ?? const [])
             .map((i) => Insurance.fromJson(i as Map<String, dynamic>))
             .toList(),
+        consultations:
+            RecordPage.fromJson(json['consultations'], ConsultationItem.fromJson),
+        documents:
+            RecordPage.fromJson(json['documents'], MedicalDocumentItem.fromJson),
+      );
+}
+
+/// Tranche paginée d'une liste du dossier (consultations ou documents) :
+/// `{items: [...], pagination: {current_page, last_page, total}}`.
+class RecordPage<T> {
+  const RecordPage({
+    this.items = const [],
+    this.currentPage = 1,
+    this.lastPage = 1,
+    this.total = 0,
+  });
+
+  final List<T> items;
+  final int currentPage;
+  final int lastPage;
+
+  /// Nombre d'éléments toutes pages confondues.
+  final int total;
+
+  factory RecordPage.fromJson(
+    Object? json,
+    T Function(Map<String, dynamic>) fromJson,
+  ) {
+    // Ancienne forme du dossier (liste à plat, avant la pagination) : tout
+    // tient sur une seule page.
+    if (json is List) {
+      final items =
+          json.map((e) => fromJson(e as Map<String, dynamic>)).toList();
+      return RecordPage(items: items, total: items.length);
+    }
+    if (json is! Map<String, dynamic>) return const RecordPage();
+
+    final items = (json['items'] as List? ?? const [])
+        .map((e) => fromJson(e as Map<String, dynamic>))
+        .toList();
+    final pagination = json['pagination'];
+    final meta =
+        pagination is Map<String, dynamic> ? pagination : const <String, dynamic>{};
+
+    return RecordPage(
+      items: items,
+      currentPage: (meta['current_page'] as num?)?.toInt() ?? 1,
+      lastPage: (meta['last_page'] as num?)?.toInt() ?? 1,
+      total: (meta['total'] as num?)?.toInt() ?? items.length,
+    );
+  }
+}
+
+/// Consultation passée du patient, avec ses documents joints
+/// (compte rendu versé au dossier par le médecin).
+class ConsultationItem {
+  const ConsultationItem({
+    required this.id,
+    required this.doctor,
+    required this.specialty,
+    this.consultedAt,
+    this.reason,
+    this.diagnosis,
+    this.prescription,
+    this.documents = const [],
+  });
+
+  final int id;
+  final String doctor; // « Dr Prénom Nom »
+  final String specialty;
+  final String? consultedAt; // Y-m-d
+  final String? reason;
+  final String? diagnosis;
+  final String? prescription;
+  final List<MedicalDocumentItem> documents;
+
+  factory ConsultationItem.fromJson(Map<String, dynamic> json) =>
+      ConsultationItem(
+        id: json['id'] as int,
+        doctor: json['doctor'] as String? ?? '',
+        specialty: json['specialty'] as String? ?? '',
+        consultedAt: json['consulted_at'] as String?,
+        reason: json['reason'] as String?,
+        diagnosis: json['diagnosis'] as String?,
+        prescription: json['prescription'] as String?,
         documents: (json['documents'] as List? ?? const [])
-            .map((d) =>
-                MedicalDocumentItem.fromJson(d as Map<String, dynamic>))
+            .map((d) => MedicalDocumentItem.fromJson(d as Map<String, dynamic>))
             .toList(),
       );
 }
@@ -76,6 +167,7 @@ class MedicalRecordSummary {
     this.bloodType,
     this.allergies,
     this.medicalHistory,
+    this.surgicalHistory,
     this.currentMedications,
     this.notes,
   });
@@ -83,6 +175,7 @@ class MedicalRecordSummary {
   final String? bloodType; // A+, O-, …
   final String? allergies;
   final String? medicalHistory;
+  final String? surgicalHistory;
   final String? currentMedications;
   final String? notes;
 
@@ -91,6 +184,7 @@ class MedicalRecordSummary {
         bloodType: json['blood_type'] as String?,
         allergies: json['allergies'] as String?,
         medicalHistory: json['medical_history'] as String?,
+        surgicalHistory: json['surgical_history'] as String?,
         currentMedications: json['current_medications'] as String?,
         notes: json['notes'] as String?,
       );
@@ -106,11 +200,16 @@ class MedicalDocumentItem {
     required this.isImage,
     required this.isPdf,
     required this.fileUrl,
+    this.consultationId,
     this.issuedAt,
     this.notes,
   });
 
   final int id;
+
+  /// Consultation à laquelle le document est joint, `null` s'il a été versé
+  /// au dossier sans consultation associée.
+  final int? consultationId;
   final String type; // analysis_result | prescription | radiography | other
   final String typeLabel;
   final String title;
@@ -125,6 +224,7 @@ class MedicalDocumentItem {
   factory MedicalDocumentItem.fromJson(Map<String, dynamic> json) =>
       MedicalDocumentItem(
         id: json['id'] as int,
+        consultationId: (json['consultation_id'] as num?)?.toInt(),
         type: json['type'] as String,
         typeLabel: json['type_label'] as String,
         title: json['title'] as String,

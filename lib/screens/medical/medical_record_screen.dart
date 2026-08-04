@@ -12,8 +12,8 @@ import '../../widgets/shared.dart';
 import 'document_viewer_screen.dart';
 
 /// Dossier médical, en lecture seule : synthèse clinique (groupe sanguin,
-/// allergies, antécédents, traitements) et documents (analyses, ordonnances,
-/// radios…).
+/// allergies, antécédents, traitements), historique paginé des consultations
+/// et documents paginés (analyses, ordonnances, radios…).
 ///
 /// Deux usages : un médecin ou un administrateur consulte le dossier d'un
 /// patient qu'il suit (`patientId` fourni) ; un patient consulte son propre
@@ -41,6 +41,14 @@ class MedicalRecordScreen extends StatefulWidget {
 class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
   late Future<PatientRecord> _future;
 
+  /// Pages courantes des deux listes paginées du dossier.
+  int _consultationsPage = 1;
+  int _documentsPage = 1;
+
+  /// Dernier dossier reçu, gardé affiché pendant le chargement d'une autre
+  /// page : la liste ne repasse pas par un squelette à chaque pagination.
+  PatientRecord? _lastRecord;
+
   @override
   void initState() {
     super.initState();
@@ -50,8 +58,29 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
   void _load() {
     final repository = context.read<MedicalRecordRepository>();
     _future = widget.patientId == null
-        ? repository.mine()
-        : repository.record(widget.patientId!);
+        ? repository.mine(
+            consultationsPage: _consultationsPage,
+            documentsPage: _documentsPage,
+          )
+        : repository.record(
+            widget.patientId!,
+            consultationsPage: _consultationsPage,
+            documentsPage: _documentsPage,
+          );
+  }
+
+  void _openConsultationsPage(int page) {
+    setState(() {
+      _consultationsPage = page;
+      _load();
+    });
+  }
+
+  void _openDocumentsPage(int page) {
+    setState(() {
+      _documentsPage = page;
+      _load();
+    });
   }
 
   /// Ouvre un document dans l'application : les images en plein écran,
@@ -159,9 +188,6 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
       body: FutureBuilder<PatientRecord>(
         future: _future,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SkeletonList(height: 120);
-          }
           if (snapshot.hasError) {
             return ErrorView(
               error: snapshot.error!,
@@ -169,7 +195,15 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
             );
           }
 
-          final record = snapshot.data!;
+          if (snapshot.hasData) _lastRecord = snapshot.data;
+          // Pendant un changement de page, le dossier déjà affiché reste en
+          // place ; le squelette n'apparaît qu'au tout premier chargement.
+          final record = snapshot.data ?? _lastRecord;
+          if (record == null) {
+            return const SkeletonList(height: 120);
+          }
+          final loading =
+              snapshot.connectionState == ConnectionState.waiting;
 
           return FadeSlideIn(
               child: ListView(
@@ -197,13 +231,36 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
                   insurances: record.insurances,
                 ),
               const SizedBox(height: 28),
-              SectionHeader(title: 'Documents (${record.documents.length})'),
-              if (record.documents.isEmpty)
+              SectionHeader(
+                  title: 'Consultations (${record.consultations.total})'),
+              if (record.consultations.items.isEmpty)
+                const _PlaceholderCard(
+                  message: 'Aucune consultation enregistrée pour ce patient.',
+                )
+              else ...[
+                for (final consultation in record.consultations.items)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.gap),
+                    child: _ConsultationCard(
+                      consultation: consultation,
+                      onOpenDocument: _openDocument,
+                    ),
+                  ),
+                PaginationBar(
+                  currentPage: record.consultations.currentPage,
+                  lastPage: record.consultations.lastPage,
+                  enabled: !loading,
+                  onPageSelected: _openConsultationsPage,
+                ),
+              ],
+              const SizedBox(height: 28),
+              SectionHeader(title: 'Documents (${record.documents.total})'),
+              if (record.documents.items.isEmpty)
                 const _PlaceholderCard(
                   message: 'Aucun document dans ce dossier.',
                 )
-              else
-                for (final document in record.documents)
+              else ...[
+                for (final document in record.documents.items)
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.gap),
                     child: _DocumentCard(
@@ -211,6 +268,13 @@ class _MedicalRecordScreenState extends State<MedicalRecordScreen> {
                       onOpen: () => _openDocument(document),
                     ),
                   ),
+                PaginationBar(
+                  currentPage: record.documents.currentPage,
+                  lastPage: record.documents.lastPage,
+                  enabled: !loading,
+                  onPageSelected: _openDocumentsPage,
+                ),
+              ],
             ],
           ));
         },
@@ -230,7 +294,7 @@ class _PlaceholderCard extends StatelessWidget {
     return AppCard(
       child: Row(
         children: [
-          const Icon(Icons.info_outline_rounded,
+          Icon(Icons.info_outline_rounded,
               size: 19, color: AppPalette.inkFaint),
           const SizedBox(width: AppSpacing.gap),
           Expanded(
@@ -266,7 +330,7 @@ class _PatientCard extends StatelessWidget {
             width: 54,
             height: 54,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppPalette.primarySoft,
               shape: BoxShape.circle,
             ),
@@ -327,8 +391,13 @@ class _RecordCard extends StatelessWidget {
             ),
             _RecordRow(
               icon: Icons.history_outlined,
-              label: 'Antécédents',
+              label: 'Antécédents médicaux',
               value: record?.medicalHistory,
+            ),
+            _RecordRow(
+              icon: Icons.healing_outlined,
+              label: 'Antécédents chirurgicaux',
+              value: record?.surgicalHistory,
             ),
             _RecordRow(
               icon: Icons.medication_outlined,
@@ -391,6 +460,127 @@ class _RecordRow extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Consultation passée : date et médecin, puis motif, diagnostic et
+/// prescription renseignés, et enfin les documents joints, ouvrables d'un
+/// geste comme ceux de la section « Documents ».
+class _ConsultationCard extends StatelessWidget {
+  const _ConsultationCard({
+    required this.consultation,
+    required this.onOpenDocument,
+  });
+
+  final ConsultationItem consultation;
+  final void Function(MedicalDocumentItem) onOpenDocument;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+
+    String? dateLabel;
+    if (consultation.consultedAt != null) {
+      final date = DateTime.tryParse(consultation.consultedAt!);
+      if (date != null) {
+        dateLabel = DateFormat('d MMMM yyyy', 'fr_FR').format(date);
+      }
+    }
+
+    final fields = [
+      ('Motif', consultation.reason),
+      ('Diagnostic', consultation.diagnosis),
+      ('Prescription', consultation.prescription),
+    ].where((field) => field.$2?.trim().isNotEmpty ?? false);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppPalette.primarySoft,
+                  borderRadius: BorderRadius.circular(AppRadius.control),
+                ),
+                child: Icon(Icons.medical_services_outlined,
+                    color: AppPalette.primary, size: 21),
+              ),
+              const SizedBox(width: AppSpacing.gap),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(dateLabel ?? 'Consultation', style: text.titleSmall),
+                    const SizedBox(height: 2),
+                    Text(
+                      [consultation.doctor, consultation.specialty]
+                          .where((part) => part.isNotEmpty)
+                          .join(' · '),
+                      style: text.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          for (final (label, value) in fields)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.gap),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: text.bodySmall),
+                  const SizedBox(height: 2),
+                  Text(value!.trim(), style: text.bodyLarge),
+                ],
+              ),
+            ),
+          if (consultation.documents.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.gap),
+              child: Divider(height: 1),
+            ),
+            for (final document in consultation.documents)
+              InkWell(
+                onTap: () => onOpenDocument(document),
+                borderRadius: BorderRadius.circular(AppRadius.control),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.attach_file_rounded,
+                          size: 17, color: AppPalette.primary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          document.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.bodyMedium
+                              ?.copyWith(color: AppPalette.primary),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        document.isImage || document.isPdf
+                            ? Icons.visibility_outlined
+                            : Icons.open_in_new_rounded,
+                        size: 17,
+                        color: AppPalette.inkFaint,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );

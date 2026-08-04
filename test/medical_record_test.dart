@@ -39,9 +39,14 @@ void main() {
     expect(record.record, isNotNull,
         reason: 'le patient seedé a une fiche médicale renseignée');
     expect(record.record!.bloodType, isNotNull);
-    expect(record.documents, isNotEmpty,
+    // Les deux listes paginées du dossier se lisent (page 1 par défaut).
+    expect(record.consultations.currentPage, 1);
+    expect(record.consultations.total,
+        greaterThanOrEqualTo(record.consultations.items.length));
+    expect(record.documents.items, isNotEmpty,
         reason: 'le patient seedé a au moins un document');
-    expect(record.documents.first.fileUrl, startsWith('/api/'));
+    expect(record.documents.total, greaterThanOrEqualTo(1));
+    expect(record.documents.items.first.fileUrl, startsWith('/api/'));
 
     await auth.logout();
   }, timeout: const Timeout(Duration(minutes: 2)));
