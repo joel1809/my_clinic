@@ -105,6 +105,58 @@ void main() {
     expect(find.text('Ordonnance — traitement antipaludéen'), findsOneWidget);
   });
 
+  testWidgets('rend les rubriques mises en forme reçues de l\'API',
+      (tester) async {
+    // Depuis le passage de l'administration à un éditeur enrichi, l'API
+    // transmet ces rubriques en HTML assaini.
+    await pumpScreen(
+      tester,
+      record: const PatientRecord(
+        patient: RecordPatient(id: 11, name: 'Awa Diomandé'),
+        record: MedicalRecordSummary(
+          allergies: '<ul><li>Arachides</li><li>Pollen</li></ul>',
+          medicalHistory: '<p>Asthme <strong>léger</strong></p>',
+        ),
+        consultations: RecordPage(
+          total: 1,
+          items: [
+            ConsultationItem(
+              id: 4,
+              doctor: 'Dr Kouadio N\'Guessan',
+              specialty: 'Cardiologie',
+              consultedAt: '2026-05-20',
+              diagnosis: '<p>Angor <strong>stable</strong></p>',
+              prescription: '<ol><li>Bêtabloquant</li><li>Contrôle</li></ol>',
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Chaque élément de liste est une ligne à part, et non un bloc de texte
+    // où les puces se seraient collées les unes aux autres.
+    expect(find.text('Arachides', findRichText: true), findsOneWidget);
+    expect(find.text('Pollen', findRichText: true), findsOneWidget);
+    // Le gras est porté par un fragment : le texte du bloc reste entier.
+    expect(find.text('Asthme léger', findRichText: true), findsOneWidget);
+    // Aucune balise ne doit transparaître à l'écran.
+    expect(find.textContaining('<', findRichText: true), findsNothing);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+
+    // Sur la carte, la mise en forme est ramenée à une ligne de texte.
+    expect(find.text('Angor stable'), findsOneWidget);
+
+    await tester.tap(find.text('Dr Kouadio N\'Guessan · Cardiologie'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Angor stable', findRichText: true), findsOneWidget);
+    expect(find.text('Bêtabloquant', findRichText: true), findsOneWidget);
+    expect(find.text('Contrôle', findRichText: true), findsOneWidget);
+    expect(find.textContaining('<', findRichText: true), findsNothing);
+  });
+
   testWidgets('demande 5 consultations par page et pagine au-delà',
       (tester) async {
     // Douze consultations réparties par l'API en trois pages de cinq.

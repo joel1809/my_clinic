@@ -1,4 +1,5 @@
 import '../core/app_config.dart';
+import '../core/rich_html.dart';
 
 /// Pop-up informationnel de la clinique (PopupResource) : annonce, campagne
 /// de prévention, fermeture exceptionnelle… affiché au démarrage.
@@ -50,15 +51,5 @@ class Popup {
   String get storagePrefix => 'popup-$id-';
 
   /// Message en texte lisible : le contenu peut contenir du HTML basique.
-  String get plainContent => (content ?? '')
-      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-      .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n\n')
-      .replaceAll(RegExp(r'<[^>]+>'), '')
-      .replaceAll('&nbsp;', ' ')
-      .replaceAll('&amp;', '&')
-      .replaceAll('&quot;', '"')
-      .replaceAll('&#039;', "'")
-      .replaceAll('&lt;', '<')
-      .replaceAll('&gt;', '>')
-      .trim();
+  String get plainContent => richHtmlToPlainText(content);
 }

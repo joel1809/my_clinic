@@ -1,4 +1,5 @@
 import '../core/app_config.dart';
+import '../core/rich_html.dart';
 
 /// Article de blog (ArticleResource).
 class Article {
@@ -48,15 +49,5 @@ class Article {
       );
 
   /// Contenu texte lisible : le corps peut contenir du HTML basique.
-  String get plainBody => (body ?? '')
-      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-      .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n\n')
-      .replaceAll(RegExp(r'<[^>]+>'), '')
-      .replaceAll('&nbsp;', ' ')
-      .replaceAll('&amp;', '&')
-      .replaceAll('&quot;', '"')
-      .replaceAll('&#039;', "'")
-      .replaceAll('&lt;', '<')
-      .replaceAll('&gt;', '>')
-      .trim();
+  String get plainBody => richHtmlToPlainText(body);
 }

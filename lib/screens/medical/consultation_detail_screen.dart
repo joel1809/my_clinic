@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/app_config.dart';
 import '../../models/medical_record.dart';
 import '../../theme.dart';
+import '../../widgets/rich_text_body.dart';
 import '../../widgets/shared.dart';
 import 'document_viewer_screen.dart';
 
@@ -235,28 +236,35 @@ class _ConsultationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final filled = value?.trim().isNotEmpty ?? false;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 19, color: AppPalette.inkFaint),
+          // Icône et intitulé à la couleur de marque, comme les rubriques de
+          // la fiche médicale : le compte rendu se lit de la même façon.
+          Icon(icon, size: 19, color: AppPalette.primary),
           const SizedBox(width: AppSpacing.gap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: text.bodySmall),
-                const SizedBox(height: 2),
                 Text(
-                  filled ? value!.trim() : 'Non renseigné',
-                  // Une valeur absente reste lisible mais s'efface : l'œil va
-                  // d'abord aux informations réellement remplies.
-                  style: filled
-                      ? text.bodyLarge
-                      : text.bodyLarge?.copyWith(color: AppPalette.inkFaint),
+                  label,
+                  style: text.bodySmall?.copyWith(
+                    color: AppPalette.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // Diagnostic et prescription sont rédigés dans un éditeur
+                // enrichi côté administration : l'API les transmet en HTML
+                // assaini, avec listes et emphases.
+                RichTextBody(
+                  html: value,
+                  style: text.bodyLarge,
+                  emptyPlaceholder: 'Non renseigné',
                 ),
               ],
             ),

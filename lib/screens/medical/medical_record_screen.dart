@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/rich_html.dart';
 import '../../models/insurance.dart';
 import '../../models/medical_record.dart';
 import '../../repositories/medical_record_repository.dart';
 import '../../theme.dart';
+import '../../widgets/rich_text_body.dart';
 import '../../widgets/shared.dart';
 import 'consultation_detail_screen.dart';
 
@@ -335,28 +337,36 @@ class _RecordRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final filled = value?.trim().isNotEmpty ?? false;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 19, color: AppPalette.inkFaint),
+          // Icône et intitulé à la couleur de marque : ils forment un même
+          // bloc, qui détache chaque rubrique de la précédente dans une fiche
+          // qui en empile sept.
+          Icon(icon, size: 19, color: AppPalette.primary),
           const SizedBox(width: AppSpacing.gap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: text.bodySmall),
-                const SizedBox(height: 2),
                 Text(
-                  filled ? value!.trim() : 'Non renseigné',
-                  // Une valeur absente reste lisible mais s'efface : l'œil va
-                  // d'abord aux informations réellement remplies.
-                  style: filled
-                      ? text.bodyLarge
-                      : text.bodyLarge?.copyWith(color: AppPalette.inkFaint),
+                  label,
+                  style: text.bodySmall?.copyWith(
+                    color: AppPalette.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // Les rubriques cliniques sont saisies dans un éditeur enrichi
+                // côté administration : listes, gras, titres… L'API les
+                // transmet en HTML assaini.
+                RichTextBody(
+                  html: value,
+                  style: text.bodyLarge,
+                  emptyPlaceholder: 'Non renseigné',
                 ),
               ],
             ),
@@ -382,11 +392,12 @@ class _ConsultationCard extends StatelessWidget {
     final documentCount = consultation.documents.length;
 
     // Aperçu du compte rendu : le motif, à défaut le diagnostic. Le détail
-    // porte l'ensemble, la carte n'en donne que de quoi se repérer.
+    // porte l'ensemble, la carte n'en donne que de quoi se repérer — la mise
+    // en forme du diagnostic y est ramenée à une ligne de texte courante.
     final summary = [consultation.reason, consultation.diagnosis]
-        .firstWhere((value) => value?.trim().isNotEmpty ?? false,
-            orElse: () => null)
-        ?.trim();
+        .map((value) =>
+            richHtmlToPlainText(value).replaceAll(RegExp(r'\s*\n+\s*'), ' '))
+        .firstWhere((value) => value.isNotEmpty, orElse: () => '');
 
     return AppCard(
       onTap: onTap,
@@ -417,7 +428,7 @@ class _ConsultationCard extends StatelessWidget {
                       .join(' · '),
                   style: text.bodySmall,
                 ),
-                if (summary != null) ...[
+                if (summary.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
                     summary,
