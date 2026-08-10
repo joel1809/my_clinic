@@ -4,7 +4,7 @@
          extraction par adb, qui sortiraient le dossier médical et le jeton de
          session de l'appareil. -->
     <application
-        android:label="Medolia"
+        android:label="My Clinic"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config"
