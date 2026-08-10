@@ -321,11 +321,14 @@ class _DocumentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Titre à la couleur de marque, comme les intitulés du compte
+                // rendu : il annonce un document à ouvrir, la ligne grise en
+                // dessous n'en donnant que la nature et la date.
                 Text(
                   document.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: text.titleSmall,
+                  style: text.titleSmall?.copyWith(color: AppPalette.primary),
                 ),
                 const SizedBox(height: 2),
                 Text(

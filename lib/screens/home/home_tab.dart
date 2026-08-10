@@ -270,11 +270,13 @@ class _SpecialtyCard extends StatelessWidget {
         children: [
           SpecialtyAvatar(specialty: specialty),
           const Spacer(),
+          // Nom à la couleur de marque, comme la spécialité sur la fiche d'un
+          // médecin : le nombre de médecins reste en gris sous lui.
           Text(
             specialty.name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: text.titleSmall,
+            style: text.titleSmall?.copyWith(color: AppPalette.primary),
           ),
           const SizedBox(height: 3),
           Text(
