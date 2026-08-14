@@ -16,6 +16,20 @@ val keystoreProperties = Properties().apply {
 }
 val hasReleaseKeystore = keystorePropertiesFile.exists()
 
+// Une build de distribution doit être signée avec la clé de production. La clé
+// de débogage est publique et connue : n'importe qui pourrait signer une
+// version modifiée de l'application avec la même identité, et un téléphone
+// l'accepterait comme une mise à jour. Le build s'arrête donc, plutôt que de
+// produire un APK trompeusement complet derrière un avertissement noyé dans la
+// sortie. Les builds de débogage ne sont pas concernées.
+val buildsRelease = gradle.startParameter.taskNames.any { it.contains("Release") }
+if (buildsRelease && !hasReleaseKeystore) {
+    throw GradleException(
+        "android/key.properties absent : impossible de signer une build de " +
+            "distribution. Voir android/key.properties.example."
+    )
+}
+
 android {
     namespace = "com.example.my_clinic"
     compileSdk = flutter.compileSdkVersion
@@ -50,19 +64,13 @@ android {
 
     buildTypes {
         release {
-            // Signature de production dès que android/key.properties existe.
-            // Sans lui, on retombe sur la clé de débogage pour que le build
-            // local continue de fonctionner — mais un APK signé ainsi ne doit
-            // pas être distribué : la clé de débogage est publique et connue,
-            // donc n'importe qui peut signer une version modifiée de
-            // l'application avec la même identité.
+            // Signature de production. Son absence a déjà arrêté le build
+            // ci-dessus ; la clé de débogage ne sert de repli que pour les
+            // tâches qui ne produisent pas de livrable (analyse, sync de
+            // l'IDE), où la configuration est tout de même évaluée.
             signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {
-                logger.warn(
-                    "android/key.properties absent : APK release signe avec la " +
-                        "cle de DEBOGAGE. A ne pas distribuer."
-                )
                 signingConfigs.getByName("debug")
             }
         }

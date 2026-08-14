@@ -166,6 +166,12 @@ class _RichHtmlParser {
   /// Le contenu porte-t-il au moins une balise à interpréter ?
   static bool hasTag(String source) => _tagPattern.hasMatch(source);
 
+  /// Balises dont le texte n'en est pas : leur contenu est du code, pas de la
+  /// prose. Il ne s'exécuterait pas ici — l'application n'a pas de navigateur —
+  /// mais il s'afficherait tel quel au milieu du dossier médical si
+  /// l'assainissement côté API venait à laisser passer l'une d'elles.
+  static const _ignoredTags = {'script', 'style'};
+
   static const _styleTags = <String, String>{
     'strong': 'bold',
     'b': 'bold',
@@ -191,6 +197,10 @@ class _RichHtmlParser {
   bool _inHeading = false;
   int _quoteDepth = 0;
 
+  /// Balises ignorées actuellement ouvertes : tant qu'il y en a, le texte
+  /// rencontré est laissé de côté.
+  int _ignoredDepth = 0;
+
   List<RichBlock> parse() {
     var index = 0;
     for (final match in _tagPattern.allMatches(_source)) {
@@ -214,6 +224,11 @@ class _RichHtmlParser {
   }
 
   void _openTag(String tag) {
+    if (_ignoredTags.contains(tag)) {
+      _ignoredDepth++;
+      return;
+    }
+
     final style = _styleTags[tag];
     if (style != null) {
       _styles.add(style);
@@ -250,6 +265,11 @@ class _RichHtmlParser {
   }
 
   void _closeTag(String tag) {
+    if (_ignoredTags.contains(tag)) {
+      if (_ignoredDepth > 0) _ignoredDepth--;
+      return;
+    }
+
     final style = _styleTags[tag];
     if (style != null) {
       // On retire la dernière ouverture de ce style : une balise fermée sans
@@ -293,7 +313,7 @@ class _RichHtmlParser {
   }
 
   void _appendPiece(String text) {
-    if (text.isEmpty) return;
+    if (text.isEmpty || _ignoredDepth > 0) return;
     final piece = RichPiece(
       text,
       bold: _styles.contains('bold'),

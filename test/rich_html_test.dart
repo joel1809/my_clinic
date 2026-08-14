@@ -91,6 +91,22 @@ void main() {
 
       expect(blocks.single.text, 'Suivi régulier');
     });
+
+    test('laisse de côté le contenu des balises script et style', () {
+      // Rien ne s'exécuterait ici, faute de navigateur — mais le code
+      // s'afficherait au milieu de la rubrique.
+      final blocks = parseRichHtml(
+        '<p>Asthme<script>alert("x")</script> traité</p>'
+        '<style>p { color: red }</style>',
+      );
+
+      expect(blocks.single.text, 'Asthme traité');
+    });
+
+    test('une rubrique réduite à un script ne donne aucun bloc', () {
+      // L'appelant affiche alors son repli (« Non renseigné »).
+      expect(parseRichHtml('<script>alert("x")</script>'), isEmpty);
+    });
   });
 
   group('richHtmlToPlainText', () {

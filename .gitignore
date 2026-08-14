@@ -44,3 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 captures/
+
+# Captures d'écran de mise au point : elles montrent l'application en
+# fonctionnement, donc potentiellement des données de patients.
+error/

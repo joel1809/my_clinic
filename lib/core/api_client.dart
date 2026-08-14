@@ -20,12 +20,19 @@ class ApiClient {
   /// Appelé quand l'API répond 401 : permet de forcer la déconnexion.
   void Function()? onUnauthenticated;
 
+  /// Le backend est-il joint à travers un tunnel ngrok (développement) ?
+  static final bool _throughNgrok =
+      Uri.parse(AppConfig.baseUrl).host.contains('ngrok');
+
   Map<String, String> get _headers => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         // Évite la page d'avertissement HTML de ngrok (plan gratuit) qui,
-        // sinon, remplacerait le JSON attendu. Sans effet hors ngrok.
-        'ngrok-skip-browser-warning': 'true',
+        // sinon, remplacerait le JSON attendu. Réservé au tunnel : cet en-tête
+        // n'apprendrait rien à un vrai backend, et le trafic d'une application
+        // distribuée n'a pas à porter la trace de l'outillage de
+        // développement.
+        if (_throughNgrok) 'ngrok-skip-browser-warning': 'true',
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
