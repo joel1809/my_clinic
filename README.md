@@ -77,26 +77,47 @@ lancement. Si le backend n'est pas sur `localhost:8000` :
 
 ### URL du backend
 
-Par défaut :
+L'URL se fournit au lancement, avec
+`--dart-define=API_BASE_URL=https://mon-backend`. Sans elle, **en
+développement seulement**, l'application retombe sur :
 
-| Plateforme                 | URL utilisée                 |
-| -------------------------- | ---------------------------- |
-| Android (téléphone physique) | `http://192.168.100.12:8000` |
-| Windows / web              | `http://localhost:8000`      |
+| Plateforme                   | URL utilisée                                    |
+| ---------------------------- | ----------------------------------------------- |
+| Android (téléphone physique) | le tunnel ngrok déclaré dans `app_config.dart`   |
+| Windows / web                | `http://localhost:8000`                          |
 
-Le téléphone et le PC doivent être sur le même réseau Wi-Fi, et le backend
-doit écouter sur toutes les interfaces :
+Pour un test en Wi-Fi local, le téléphone et le PC doivent être sur le même
+réseau, et le backend doit écouter sur toutes les interfaces :
 
 ```bash
 php artisan serve --host=0.0.0.0 --port=8000
+flutter run --dart-define=API_BASE_URL=http://<ip-du-pc>:8000
 ```
 
-Si l'adresse IP du PC change (`ipconfig` pour la connaître), mettez à jour
-`lib/core/app_config.dart` (ou lancez avec
-`--dart-define=API_BASE_URL=http://<ip-du-pc>:8000`) **et** ajoutez la
-nouvelle IP dans
-`android/app/src/main/res/xml/network_security_config.xml` : le HTTP en
-clair n'est autorisé que vers les hôtes de développement qui y sont listés.
+Ajoutez alors l'IP du PC (`ipconfig` pour la connaître) dans
+`android/app/src/debug/res/xml/network_security_config.xml` : le HTTP en clair
+n'est autorisé qu'en build de débogage, et seulement vers les hôtes qui y sont
+listés.
+
+### Build de distribution
+
+`API_BASE_URL` est **obligatoire** en `--release`, et doit être en HTTPS :
+
+```bash
+flutter build apk --release --dart-define=API_BASE_URL=https://api.exemple.test
+```
+
+Sans elle, l'application s'arrête au démarrage avec un message explicite
+(`AppConfig.checkConfiguration`). C'est volontaire : le repli de développement
+est un tunnel ngrok, qui déchiffre le trafic qui le traverse et aboutit à un
+poste de développement — dossiers médicaux et jetons de session compris. Un
+APK partagé pour test doit donc nommer explicitement son backend, tunnel
+compris :
+
+```bash
+flutter build apk --release \
+  --dart-define=API_BASE_URL=https://delusion-obedient-banister.ngrok-free.dev
+```
 
 ## Architecture
 

@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
+import 'core/app_config.dart';
 import 'core/session_store.dart';
 import 'repositories/appointment_repository.dart';
 import 'repositories/article_repository.dart';
@@ -23,6 +24,12 @@ import 'widgets/brand_logo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Une build de distribution doit dire à quel backend elle s'adresse : on
+  // s'en assure avant tout appel réseau, plutôt que de laisser un APK mal
+  // construit joindre le tunnel de développement.
+  AppConfig.checkConfiguration();
+
   await initializeDateFormatting('fr_FR');
 
   // Affichage bord à bord : le contenu s'étend sous la barre d'état et sous la

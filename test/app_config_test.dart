@@ -6,6 +6,33 @@ import 'package:my_clinic/core/app_config.dart';
 const _base = 'http://localhost:8000';
 
 void main() {
+  group('AppConfig.baseUrl', () {
+    test('joint le backend local, sans slash final', () {
+      expect(AppConfig.baseUrl, _base);
+      expect(AppConfig.apiUrl, '$_base/api/v1');
+    });
+
+    test('ne réclame pas d\'URL explicite hors release', () {
+      // Le contrôle ne vaut que pour une build de distribution : les replis de
+      // développement restent utilisables sans --dart-define.
+      expect(AppConfig.checkConfiguration, returnsNormally);
+    });
+
+    test('refuse une build de distribution sans API_BASE_URL', () {
+      // La suite s'exécute sans --dart-define : c'est exactement la situation
+      // d'un APK release construit sans dire à quel backend il s'adresse. Il
+      // ne doit pas démarrer sur le tunnel de développement.
+      expect(
+        () => AppConfig.checkConfiguration(release: true),
+        throwsA(isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('API_BASE_URL'),
+        )),
+      );
+    });
+  });
+
   group('AppConfig.mediaUri', () {
     test('résout un chemin relatif contre le backend', () {
       expect(
