@@ -44,6 +44,9 @@ class Article {
         detailImageUrls: json['detail_image_urls'] is List
             ? (json['detail_image_urls'] as List)
                 .map((u) => AppConfig.resolveMediaUrl(u.toString()))
+                // Une adresse pointant hors du backend est écartée plutôt
+                // qu'affichée (voir AppConfig.resolveMediaUrl).
+                .whereType<String>()
                 .toList()
             : const [],
       );

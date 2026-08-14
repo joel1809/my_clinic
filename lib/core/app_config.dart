@@ -45,9 +45,15 @@ class AppConfig {
   /// Renvoie `null` si l'adresse obtenue sort de l'hôte du backend.
   static Uri? mediaUri(String path) {
     final base = Uri.parse(baseUrl);
-    // `resolve` accepte un chemin relatif comme une URL absolue ; dans le
+    // Adresse illisible (port invalide, caractères interdits) : `tryParse`
+    // rend `null` là où `Uri.parse` lèverait, et la lecture de la réponse ne
+    // doit pas échouer sur une adresse mal formée.
+    final parsed = Uri.tryParse(_reachableHost(path));
+    if (parsed == null) return null;
+
+    // `resolveUri` accepte un chemin relatif comme une URL absolue ; dans le
     // second cas l'hôte change, et la comparaison ci-dessous le rejette.
-    final uri = base.resolve(path);
+    final uri = base.resolveUri(parsed);
 
     if (uri.scheme != base.scheme ||
         uri.host != base.host ||
@@ -57,11 +63,23 @@ class AppConfig {
     return uri;
   }
 
+  /// Adresse d'une image renvoyée par l'API, ramenée à l'hôte joignable depuis
+  /// l'appareil — ou `null` si elle désigne un autre hôte.
+  ///
+  /// Les images passent par le même contrôle que les documents : elles sont
+  /// chargées, et mises en cache sur disque, sans intervention de
+  /// l'utilisateur. Une réponse forgée ferait sinon émettre à l'application une
+  /// requête vers l'hôte de son choix.
+  static String? resolveMediaUrl(String url) => mediaUri(url)?.toString();
+
   /// Les images renvoyées par l'API pointent vers APP_URL du backend
   /// (localhost) : on les réécrit vers l'hôte joignable depuis l'appareil.
-  static String resolveMediaUrl(String url) {
-    return url
-        .replaceFirst('http://localhost:8000', baseUrl)
-        .replaceFirst('http://127.0.0.1:8000', baseUrl);
-  }
+  ///
+  /// La réécriture ne vaut pas autorisation : `mediaUri` vérifie ensuite
+  /// l'hôte obtenu, ce qui écarte les adresses où « localhost:8000 »
+  /// n'apparaît qu'en trompe-l'œil (`http://localhost:8000.exemple.test`,
+  /// `https://exemple.test/?u=http://localhost:8000`).
+  static String _reachableHost(String url) => url
+      .replaceFirst('http://localhost:8000', baseUrl)
+      .replaceFirst('http://127.0.0.1:8000', baseUrl);
 }

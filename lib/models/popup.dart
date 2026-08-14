@@ -10,7 +10,7 @@ class Popup {
     required this.frequency,
     required this.dailyDisplayLimit,
     required this.delaySeconds,
-    required this.storageKey,
+    required this.storageKeyRaw,
     this.content,
     this.imageUrl,
     this.buttonText,
@@ -27,9 +27,10 @@ class Popup {
   final int dailyDisplayLimit; // affichages par jour pour « daily »
   final int delaySeconds;
 
-  /// Clé de mémorisation locale : elle change à chaque modification du
-  /// pop-up, pour qu'un contenu mis à jour soit réaffiché.
-  final String storageKey;
+  /// Empreinte de mémorisation telle que renvoyée par l'API : elle change à
+  /// chaque modification du pop-up, pour qu'un contenu mis à jour soit
+  /// réaffiché. Voir [storageKey], qui en dérive la clé réellement utilisée.
+  final String storageKeyRaw;
 
   factory Popup.fromJson(Map<String, dynamic> json) => Popup(
         id: json['id'] as int,
@@ -43,12 +44,35 @@ class Popup {
         frequency: json['frequency'] as String? ?? 'always',
         dailyDisplayLimit: (json['daily_display_limit'] as num?)?.toInt() ?? 1,
         delaySeconds: (json['delay_seconds'] as num?)?.toInt() ?? 0,
-        storageKey: json['storage_key'] as String? ?? 'popup-${json['id']}',
+        storageKeyRaw: json['storage_key'] as String? ?? '',
       );
 
   /// Préfixe commun aux clés de toutes les versions de ce pop-up : sert à
   /// purger les mémorisations d'anciennes versions.
   String get storagePrefix => 'popup-$id-';
+
+  /// Clé sous laquelle l'affichage de ce pop-up est mémorisé localement.
+  ///
+  /// Elle est construite ici plutôt que reprise telle quelle de l'API : cette
+  /// valeur désigne une entrée des préférences de l'application, qui est
+  /// écrite puis purgée par préfixe. Une réponse forgée pourrait sinon
+  /// désigner la clé d'un autre composant et l'écraser. On ne garde donc de
+  /// l'empreinte reçue que des caractères inoffensifs, sous un préfixe propre
+  /// à ce pop-up.
+  String get storageKey => '$storagePrefix${_tag(storageKeyRaw)}';
+
+  /// Suffixe de la clé : l'empreinte reçue, débarrassée de son préfixe s'il
+  /// est déjà celui attendu, puis réduite aux lettres, chiffres, « _ » et
+  /// « - ». Une empreinte vide ou entièrement écartée donne une clé stable,
+  /// qui mémorise alors le pop-up sans distinguer ses versions.
+  String _tag(String raw) {
+    final withoutPrefix =
+        raw.startsWith(storagePrefix) ? raw.substring(storagePrefix.length) : raw;
+    final cleaned = withoutPrefix.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+
+    if (cleaned.isEmpty) return 'v';
+    return cleaned.length <= 64 ? cleaned : cleaned.substring(0, 64);
+  }
 
   /// Message en texte lisible : le contenu peut contenir du HTML basique.
   String get plainContent => richHtmlToPlainText(content);
