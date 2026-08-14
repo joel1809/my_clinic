@@ -244,6 +244,41 @@ class FilterPill extends StatelessWidget {
   }
 }
 
+/// Numéro de dossier du patient en pilule, ex. « DOS-2026-0001 ».
+///
+/// L'identifiant est attribué par la clinique et renvoyé par l'API : il
+/// désigne le dossier sans ambiguïté quand deux patients portent le même nom.
+/// Partagé par le détail d'un rendez-vous (vue du personnel) et l'en-tête du
+/// dossier médical.
+class RecordNumberBadge extends StatelessWidget {
+  const RecordNumberBadge({super.key, required this.number});
+
+  final String number;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppPalette.primarySoft,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Text(
+        number,
+        // Une seule ligne : la pilule garde sa forme même à grande taille de
+        // texte système, où le numéro entier ne tient plus en largeur.
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: AppPalette.primary,
+              fontWeight: FontWeight.w600,
+              letterSpacing: .2,
+            ),
+      ),
+    );
+  }
+}
+
 /// Bloc gris animé qui figure un contenu en cours de chargement.
 ///
 /// Un squelette à la forme du contenu attendu se lit comme une page qui se

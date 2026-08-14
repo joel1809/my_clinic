@@ -238,6 +238,14 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                         children: [
                           Text(appointment.patient!.name ?? 'Patient',
                               style: text.titleSmall),
+                          // Numéro de dossier : le médecin retrouve le patient
+                          // dans le registre de la clinique, même en cas
+                          // d'homonymie
+                          if (appointment.patient!.recordNumber != null) ...[
+                            const SizedBox(height: 5),
+                            RecordNumberBadge(
+                                number: appointment.patient!.recordNumber!),
+                          ],
                           const SizedBox(height: 2),
                           Text(
                             appointment.patient!.phone ??

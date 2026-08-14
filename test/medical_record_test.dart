@@ -37,6 +37,8 @@ void main() {
     final record = await records.mine(perPage: 5);
 
     expect(record.patient.name, isNotNull);
+    // Numéro de dossier attribué par la clinique, ex. « DOS-2026-0001 »
+    expect(record.patient.recordNumber, startsWith('DOS-'));
     expect(record.record, isNotNull,
         reason: 'le patient seedé a une fiche médicale renseignée');
     expect(record.record!.bloodType, isNotNull);

@@ -54,6 +54,9 @@ void main() {
     await pumpDetail(tester, user: _doctor);
 
     expect(find.text('Awa Diomandé'), findsOneWidget);
+    // Numéro de dossier renvoyé par l'API : il identifie le patient au
+    // registre de la clinique.
+    expect(find.text('DOS-2026-0007'), findsOneWidget);
     expect(find.text('Confirmer'), findsOneWidget);
     expect(find.text('Annuler'), findsOneWidget);
     expect(find.text('Dossier médical'), findsOneWidget);
@@ -66,6 +69,7 @@ void main() {
 
     expect(find.text('Confirmer'), findsNothing);
     expect(find.text('Annuler'), findsOneWidget);
+    expect(find.text('DOS-2026-0007'), findsNothing);
     expect(find.text('Dossier médical'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -140,6 +144,7 @@ class _StubRepo extends AppointmentRepository {
         },
         'patient': {
           'id': 7,
+          'record_number': 'DOS-2026-0007',
           'name': 'Awa Diomandé',
           'phone': '+225 07 00 00 00',
         },

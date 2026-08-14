@@ -42,6 +42,8 @@ void main() {
     // Identité + synthèse clinique.
     expect(find.text('Dossier médical'), findsOneWidget);
     expect(find.text('Awa Diomandé'), findsWidgets);
+    // Numéro de dossier renvoyé par l'API, en pilule sous le nom.
+    expect(find.text('DOS-2026-0042'), findsOneWidget);
     // Les intitulés de section sont rendus en capitales par SectionHeader.
     expect(find.text('FICHE MÉDICALE'), findsOneWidget);
     expect(find.text('Groupe sanguin'), findsOneWidget);
@@ -82,6 +84,8 @@ void main() {
     );
 
     expect(find.textContaining('Aucune fiche médicale'), findsOneWidget);
+    // Dossier sans numéro (ouvert avant la numérotation) : pas de pilule.
+    expect(find.textContaining('DOS-'), findsNothing);
     expect(find.text('CONSULTATIONS (0)'), findsOneWidget);
     expect(find.textContaining('Aucune consultation'), findsOneWidget);
   });
@@ -218,6 +222,7 @@ class _StubRecordRepo extends MedicalRecordRepository {
 const _defaultRecord = PatientRecord(
   patient: RecordPatient(
     id: 7,
+    recordNumber: 'DOS-2026-0042',
     name: 'Awa Diomandé',
     phone: '+225 07 00 00 00 00',
     gender: 'female',

@@ -250,6 +250,11 @@ class _PatientCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(patient.name ?? 'Patient', style: text.titleMedium),
+                // Numéro de dossier, quand la clinique en a attribué un
+                if (patient.recordNumber != null) ...[
+                  const SizedBox(height: 5),
+                  RecordNumberBadge(number: patient.recordNumber!),
+                ],
                 const SizedBox(height: 3),
                 Text(
                   [

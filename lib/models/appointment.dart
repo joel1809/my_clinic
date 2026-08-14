@@ -7,15 +7,27 @@ import 'insurance.dart';
 
 /// Patient concerné par un rendez-vous (exposé aux médecins/admins).
 class AppointmentPatient {
-  const AppointmentPatient({required this.id, this.name, this.phone});
+  const AppointmentPatient({
+    required this.id,
+    this.recordNumber,
+    this.name,
+    this.phone,
+  });
 
   final int id;
+
+  /// Numéro de dossier attribué par la clinique, ex. « DOS-2026-0001 » : il
+  /// désigne le patient sans ambiguïté, même en cas d'homonymie. `null` pour
+  /// un dossier ouvert avant la mise en place de la numérotation.
+  final String? recordNumber;
+
   final String? name;
   final String? phone;
 
   factory AppointmentPatient.fromJson(Map<String, dynamic> json) =>
       AppointmentPatient(
         id: json['id'] as int,
+        recordNumber: json['record_number'] as String?,
         name: json['name'] as String?,
         phone: json['phone'] as String?,
       );

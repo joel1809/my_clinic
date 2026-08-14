@@ -149,6 +149,7 @@ class ConsultationItem {
 class RecordPatient {
   const RecordPatient({
     required this.id,
+    this.recordNumber,
     this.name,
     this.phone,
     this.gender,
@@ -157,6 +158,12 @@ class RecordPatient {
   });
 
   final int id;
+
+  /// Numéro de dossier attribué par la clinique, ex. « DOS-2026-0001 » : il
+  /// désigne le dossier sans ambiguïté, même en cas d'homonymie. `null` pour
+  /// un dossier ouvert avant la mise en place de la numérotation.
+  final String? recordNumber;
+
   final String? name;
   final String? phone;
   final String? gender; // male | female
@@ -165,6 +172,7 @@ class RecordPatient {
 
   factory RecordPatient.fromJson(Map<String, dynamic> json) => RecordPatient(
         id: json['id'] as int,
+        recordNumber: json['record_number'] as String?,
         name: json['name'] as String?,
         phone: json['phone'] as String?,
         gender: json['gender'] as String?,
