@@ -22,6 +22,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
 
+  /// Adresse du compte à l'ouverture de l'écran, pour repérer un changement.
+  late final String _initialEmail;
+
   String? _gender;
   DateTime? _birthDate;
   bool _isPatient = false;
@@ -33,7 +36,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     final user = context.read<AuthState>().user;
     _nameController = TextEditingController(text: user?.name ?? '');
-    _emailController = TextEditingController(text: user?.email ?? '');
+    _initialEmail = user?.email ?? '';
+    _emailController = TextEditingController(text: _initialEmail);
     _phoneController = TextEditingController(text: user?.phone ?? '');
     _addressController =
         TextEditingController(text: user?.patient?.address ?? '');
@@ -87,11 +91,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           : _addressController.text.trim();
     }
 
+    // Changer d'adresse remet le compte en attente de vérification côté
+    // serveur : autant le dire, l'utilisateur recevra un courriel.
+    final emailChanged = fields['email'] != _initialEmail;
+
     setState(() => _saving = true);
     try {
       await context.read<AuthState>().updateProfile(fields);
       if (!mounted) return;
-      showSuccess(context, 'Profil mis à jour.');
+      showSuccess(
+        context,
+        emailChanged
+            ? 'Profil mis à jour. Votre nouvelle adresse est à vérifier.'
+            : 'Profil mis à jour.',
+      );
       Navigator.of(context).pop();
     } on ApiException catch (e) {
       if (!mounted) return;

@@ -116,10 +116,15 @@ class ApiClient {
       });
     }
 
+    // Plafond de requêtes de l'API : le serveur annonce le délai d'attente
+    // en secondes, que le message affiché reprend.
+    final retryAfter = int.tryParse(response.headers['retry-after'] ?? '');
+
     throw ApiException(
       response.statusCode,
       (map['message'] as String?) ?? 'Une erreur est survenue (${response.statusCode}).',
       errors: errors,
+      retryAfter: retryAfter == null ? null : Duration(seconds: retryAfter),
     );
   }
 }

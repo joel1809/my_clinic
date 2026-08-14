@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/article.dart';
 import '../../repositories/article_repository.dart';
 import '../../theme.dart';
+import '../../widgets/rich_text_body.dart';
 import '../../widgets/shared.dart';
 
 /// Fiche détaillée d'un article (contenu complet + galerie).
@@ -121,8 +122,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     // Corps de l'article : interligne large et taille légèrement
                     // supérieure au reste de l'app, c'est du texte à lire en
                     // continu et non à balayer.
-                    Text(
-                      article.plainBody,
+                    //
+                    // L'API le transmet en HTML assaini (l'article est saisi
+                    // dans un éditeur enrichi) : titres, listes et gras sont
+                    // rendus, comme sur le site web.
+                    RichTextBody(
+                      html: article.body,
                       style: TextStyle(
                         fontSize: 15.5,
                         height: 1.7,
