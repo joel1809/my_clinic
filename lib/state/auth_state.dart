@@ -65,7 +65,7 @@ class AuthState extends ChangeNotifier {
     required String birthDate,
     required String password,
     required String passwordConfirmation,
-    String? phone,
+    required String phone,
   }) async {
     final result = await _repository.register(
       name: name,

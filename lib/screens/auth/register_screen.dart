@@ -215,10 +215,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
-                        labelText: 'Téléphone (facultatif)',
+                        labelText: 'Téléphone',
                         prefixIcon: Icon(Icons.phone_outlined),
+                        helperText: 'Utilisé pour les rappels de rendez-vous',
                       ),
-                      validator: (_) => _fieldError('phone'),
+                      validator: (value) {
+                        final apiError = _fieldError('phone');
+                        if (apiError != null) return apiError;
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Veuillez indiquer un numéro de téléphone.';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(

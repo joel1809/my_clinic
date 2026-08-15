@@ -46,14 +46,16 @@ class AuthRepository {
     required String birthDate,
     required String password,
     required String passwordConfirmation,
-    String? phone,
+    required String phone,
   }) async {
     final json = await _api.post('/auth/register', body: {
       'name': name,
       'email': email,
       'gender': gender,
       'birth_date': birthDate,
-      if (phone != null && phone.isNotEmpty) 'phone': phone,
+      // Demandé dès l'inscription : la clinique rappelle les patients sur ce
+      // numéro, et la prise de rendez-vous l'exige de toute façon.
+      'phone': phone,
       'password': password,
       'password_confirmation': passwordConfirmation,
       'device_name': deviceName,
