@@ -6,6 +6,7 @@ import '../../state/auth_state.dart';
 import '../../theme.dart';
 import '../../widgets/brand_logo.dart';
 import '../../widgets/shared.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 /// Connexion d'un patient (e-mail + mot de passe).
@@ -53,6 +54,28 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Ouvre le parcours « mot de passe oublié » (code reçu par e-mail, saisi
+  /// dans l'application) et pré-remplit l'adresse déjà tapée ici.
+  ///
+  /// Au retour d'une réinitialisation réussie, l'adresse traitée revient : le
+  /// patient n'a plus qu'à saisir son nouveau mot de passe.
+  Future<void> _openPasswordReset() async {
+    final email = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => ForgotPasswordScreen(
+          initialEmail: _emailController.text.trim(),
+        ),
+      ),
+    );
+    if (email == null || !mounted) return;
+
+    setState(() {
+      _apiErrors = const {};
+      _emailController.text = email;
+      _passwordController.clear();
+    });
   }
 
   @override
@@ -130,7 +153,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 4),
+                      // Réinitialisation : le parcours se poursuit sur le
+                      // site, qui envoie l'e-mail et reçoit le lien.
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _loading ? null : _openPasswordReset,
+                          child: const Text('Mot de passe oublié ?'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       FilledButton(
                         onPressed: _loading ? null : _submit,
                         child: _loading

@@ -67,6 +67,41 @@ class AuthRepository {
     );
   }
 
+  /// Demande l'envoi par e-mail d'un code de réinitialisation à six chiffres.
+  ///
+  /// Le message renvoyé est le même que l'adresse soit inscrite ou non : l'API
+  /// ne dit pas qui a un compte, et l'application ne doit pas le laisser
+  /// deviner non plus.
+  Future<String> forgotPassword({required String email}) async {
+    final json = await _api.post('/auth/forgot-password', body: {
+      'email': email,
+    }) as Map<String, dynamic>;
+
+    return json['message'] as String? ??
+        'Si un compte correspond à cette adresse, un code vient de lui être '
+            'envoyé par e-mail.';
+  }
+
+  /// Fixe un nouveau mot de passe à partir du code reçu par e-mail.
+  ///
+  /// Le serveur révoque au passage toutes les sessions du compte : il faut se
+  /// reconnecter avec le nouveau mot de passe.
+  Future<String> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final json = await _api.post('/auth/reset-password', body: {
+      'email': email,
+      'code': code,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    }) as Map<String, dynamic>;
+
+    return json['message'] as String? ?? 'Votre mot de passe a été réinitialisé.';
+  }
+
   Future<void> logout() => _api.post('/auth/logout');
 
   Future<User> currentUser() async {

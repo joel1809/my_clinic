@@ -79,6 +79,31 @@ class AuthState extends ChangeNotifier {
     await _openSession(result);
   }
 
+  /// Demande l'envoi d'un code de réinitialisation à l'adresse indiquée.
+  ///
+  /// La session n'est pas concernée : ce parcours s'adresse à quelqu'un qui
+  /// n'arrive justement pas à se connecter. Renvoie le message de l'API, qui
+  /// ne dit pas si l'adresse correspond à un compte.
+  Future<String> requestPasswordResetCode({required String email}) =>
+      _repository.forgotPassword(email: email);
+
+  /// Fixe un nouveau mot de passe à partir du code reçu par e-mail.
+  ///
+  /// Le serveur révoque toutes les sessions du compte : il reste à se
+  /// connecter avec le nouveau mot de passe.
+  Future<String> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+    required String passwordConfirmation,
+  }) =>
+      _repository.resetPassword(
+        email: email,
+        code: code,
+        password: password,
+        passwordConfirmation: passwordConfirmation,
+      );
+
   Future<void> _openSession(AuthResult result) async {
     _api.token = result.token;
     _user = result.user;
