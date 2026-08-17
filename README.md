@@ -119,6 +119,22 @@ flutter build apk --release \
   --dart-define=API_BASE_URL=https://delusion-obedient-banister.ngrok-free.dev
 ```
 
+### Adresses renvoyées par l'API
+
+Toutes les adresses reçues de l'API — documents du dossier médical, photos de
+médecins, logos de la charte, illustrations et **lien du bouton d'un pop-up** —
+sont ramenées à l'hôte du backend avant d'être ouvertes ou chargées
+(`AppConfig.mediaUri`). Celle qui pointe ailleurs est écartée : sans quoi une
+réponse forgée choisirait la page à ouvrir dans le navigateur du patient, ou
+l'hôte vers lequel l'application émet une requête.
+
+Conséquence côté « Paramètres du site » : **un appel à l'action de pop-up vers
+un site externe ne s'affiche pas dans l'application** — le lien étant écarté,
+le bouton disparaît plutôt que de rester sans effet. Les liens vers le site de
+la clinique lui-même passent, puisqu'il sert aussi l'API. Ouvrir la porte à
+d'autres domaines demanderait une liste d'hôtes autorisés côté API, pas un
+retour à l'URL libre.
+
 ## Architecture
 
 ```
