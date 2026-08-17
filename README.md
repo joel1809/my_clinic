@@ -128,12 +128,31 @@ sont ramenées à l'hôte du backend avant d'être ouvertes ou chargées
 réponse forgée choisirait la page à ouvrir dans le navigateur du patient, ou
 l'hôte vers lequel l'application émet une requête.
 
-Conséquence côté « Paramètres du site » : **un appel à l'action de pop-up vers
-un site externe ne s'affiche pas dans l'application** — le lien étant écarté,
-le bouton disparaît plutôt que de rester sans effet. Les liens vers le site de
-la clinique lui-même passent, puisqu'il sert aussi l'API. Ouvrir la porte à
-d'autres domaines demanderait une liste d'hôtes autorisés côté API, pas un
-retour à l'URL libre.
+Les liens vers le site de la clinique lui-même passent, puisqu'il sert aussi
+l'API. Pour qu'un **appel à l'action de pop-up vers un site externe** s'affiche,
+son hôte doit être nommé à la construction :
+
+```bash
+flutter build apk --release \
+  --dart-define=API_BASE_URL=https://api.exemple.test \
+  --dart-define=ALLOWED_LINK_HOSTS=partenaire.test,sante.gouv.test
+```
+
+Des noms d'hôtes nus, séparés par des virgules — ni schéma, ni port, ni chemin,
+ni joker ; une entrée mal formée arrête la build de distribution plutôt que de
+laisser le lien silencieusement masqué. La comparaison est exacte :
+`partenaire.test` n'ouvre pas `promo.partenaire.test`, et l'hôte n'est joint
+qu'en HTTPS.
+
+La liste vit **dans l'application**, jamais dans la réponse de l'API : c'est ce
+qui la rend utile. Une liste servie par le backend ne protégerait de rien,
+puisque la réponse qui désigne l'hôte à ouvrir désignerait aussi les hôtes
+autorisés à l'être. Le backend refuse en plus un hôte non listé à
+l'enregistrement du pop-up (`config/clinic.php`, clé `allowed_link_hosts`),
+pour que l'administration le sache tout de suite — mais c'est un confort, pas
+la barrière. **Les deux listes se tiennent à jour ensemble** : un domaine
+ajouté au backend seul ne s'affichera pas tant que l'application n'a pas été
+reconstruite.
 
 ## Architecture
 

@@ -96,4 +96,101 @@ void main() {
       );
     });
   });
+
+  group('AppConfig.linkUri', () {
+    // La suite s'exécute sans --dart-define : la liste compilée est vide, et
+    // les hôtes tiers sont fournis à l'appel comme le fait une build.
+    const partners = {'partenaire.test'};
+
+    test('accepte un lien vers le backend, comme un fichier', () {
+      expect(
+        AppConfig.linkUri('/rendez-vous')?.toString(),
+        '$_base/rendez-vous',
+      );
+      expect(
+        AppConfig.linkUri('$_base/actualites/3')?.toString(),
+        '$_base/actualites/3',
+      );
+    });
+
+    test('accepte un hôte tiers inscrit dans la liste', () {
+      expect(
+        AppConfig.linkUri('https://partenaire.test/campagne',
+                allowedHosts: partners)
+            ?.toString(),
+        'https://partenaire.test/campagne',
+      );
+    });
+
+    test('refuse un hôte absent de la liste', () {
+      expect(
+        AppConfig.linkUri('https://exemple.test/promo', allowedHosts: partners),
+        isNull,
+      );
+    });
+
+    test('n\'étend pas l\'autorisation aux sous-domaines', () {
+      // Un sous-domaine oublié ou revendu suffirait sinon à passer.
+      expect(
+        AppConfig.linkUri('https://promo.partenaire.test/x',
+            allowedHosts: partners),
+        isNull,
+      );
+      // Suffixe en trompe-l'œil.
+      expect(
+        AppConfig.linkUri('https://partenaire.test.exemple.test/x',
+            allowedHosts: partners),
+        isNull,
+      );
+    });
+
+    test('refuse un hôte autorisé joint en clair', () {
+      expect(
+        AppConfig.linkUri('http://partenaire.test/campagne',
+            allowedHosts: partners),
+        isNull,
+      );
+    });
+
+    test('refuse un hôte autorisé placé en information d\'utilisateur', () {
+      expect(
+        AppConfig.linkUri('https://partenaire.test@exemple.test/x',
+            allowedHosts: partners),
+        isNull,
+      );
+    });
+
+    test('refuse un schéma qui n\'ouvrirait pas une page web', () {
+      for (final forged in [
+        'tel:+237600000000',
+        'intent://partenaire.test#Intent;end',
+        'javascript:alert(1)',
+        '//partenaire.test/x',
+      ]) {
+        expect(AppConfig.linkUri(forged, allowedHosts: partners), isNull,
+            reason: forged);
+      }
+    });
+  });
+
+  group('AppConfig.malformedLinkHosts', () {
+    test('accepte des noms d\'hôtes nus', () {
+      expect(
+        AppConfig.malformedLinkHosts('partenaire.test, sante.gouv.test'),
+        isEmpty,
+      );
+      // Liste vide : rien à signaler, aucun hôte tiers autorisé.
+      expect(AppConfig.malformedLinkHosts(''), isEmpty);
+    });
+
+    test('signale une entrée qui n\'autoriserait rien', () {
+      // Chacune paraît juste et laisserait le lien masqué sans explication.
+      expect(
+        AppConfig.malformedLinkHosts(
+            'https://partenaire.test,partenaire.test/promo,'
+            'partenaire.test:443,*.partenaire.test,localhost'),
+        hasLength(5),
+      );
+    });
+  });
 }

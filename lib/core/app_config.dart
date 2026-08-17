@@ -15,6 +15,17 @@ class AppConfig {
 
   static const String _defined = String.fromEnvironment('API_BASE_URL');
 
+  /// Hôtes tiers vers lesquels un lien renvoyé par l'API a le droit de pointer,
+  /// en plus du backend. Séparés par des virgules, fournis à la construction :
+  ///   --dart-define=ALLOWED_LINK_HOSTS=partenaire.test,sante.gouv.test
+  ///
+  /// La liste est compilée dans l'application, jamais reçue de l'API — c'est
+  /// tout son intérêt. Une liste servie par le backend ne protégerait de rien :
+  /// la réponse qui désigne l'hôte à ouvrir désignerait aussi les hôtes
+  /// autorisés à l'être.
+  static const String _allowedLinkHosts =
+      String.fromEnvironment('ALLOWED_LINK_HOSTS');
+
   /// Domaine statique ngrok : tunnel HTTPS stable vers le backend local
   /// (php artisan serve sur le PC). L'URL ne change pas d'un lancement à
   /// l'autre, donc l'application reste joignable même hors du réseau Wi-Fi
@@ -71,7 +82,47 @@ class AppConfig {
         'distribution (reçu : $_defined).',
       );
     }
+
+    final malformed = malformedLinkHosts();
+    if (malformed.isNotEmpty) {
+      throw StateError(
+        'ALLOWED_LINK_HOSTS n\'accepte que des noms d\'hôtes nus, séparés par '
+        'des virgules — « partenaire.test », sans schéma, port ni chemin '
+        '(reçu : ${malformed.join(', ')}).',
+      );
+    }
   }
+
+  /// Entrées d'[_allowedLinkHosts] qui ne sont pas des noms d'hôtes nus.
+  ///
+  /// Une entrée mal formée n'autorise rien — [allowedLinkHosts] l'écarte — mais
+  /// elle trahit une intention déçue : « https://partenaire.test » ne couvre
+  /// pas partenaire.test, et le lien resterait masqué sans qu'on sache
+  /// pourquoi. [checkConfiguration] en fait donc une erreur de construction.
+  ///
+  /// [value] n'est là que pour les tests, qui ne peuvent pas fournir de
+  /// `--dart-define` ; les appelants s'en remettent à la liste compilée.
+  static Iterable<String> malformedLinkHosts([String value = _allowedLinkHosts]) =>
+      _splitHosts(value).where((entry) => !_isBareHost(entry));
+
+  /// Hôtes tiers autorisés, en minuscules.
+  static Set<String> get allowedLinkHosts =>
+      _splitHosts(_allowedLinkHosts).where(_isBareHost).toSet();
+
+  static Iterable<String> _splitHosts(String value) => value
+      .split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .where((entry) => entry.isNotEmpty);
+
+  /// Un nom d'hôte nu : des étiquettes alphanumériques séparées par des points,
+  /// au moins deux. Ni schéma, ni port, ni chemin, ni joker.
+  ///
+  /// La comparaison se fait ensuite sur l'égalité exacte : « partenaire.test »
+  /// n'ouvre pas « promo.partenaire.test », qu'un sous-domaine oublié ou
+  /// revendu suffirait sinon à faire passer.
+  static bool _isBareHost(String entry) => RegExp(
+        r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$',
+      ).hasMatch(entry);
 
   static const String _missingUrlMessage =
       'API_BASE_URL est obligatoire pour une build de distribution.\n'
@@ -122,6 +173,40 @@ class AppConfig {
   /// l'utilisateur. Une réponse forgée ferait sinon émettre à l'application une
   /// requête vers l'hôte de son choix.
   static String? resolveMediaUrl(String url) => mediaUri(url)?.toString();
+
+  /// Construit l'adresse d'un lien renvoyé par l'API — le bouton d'un pop-up —
+  /// ou `null` si elle ne mène ni au backend, ni à un hôte inscrit dans
+  /// [allowedLinkHosts].
+  ///
+  /// Un lien s'ouvre d'un tap dans le navigateur du téléphone, sur un patient
+  /// qui vient d'ouvrir l'application de sa clinique : c'est une position de
+  /// confiance dont une réponse forgée ferait un hameçonnage crédible. Le
+  /// contrôle porte donc sur l'hôte, et la liste des hôtes tiers est fixée à
+  /// la construction plutôt que reçue avec la réponse.
+  ///
+  /// [allowedHosts] n'est là que pour les tests, qui ne peuvent pas fournir de
+  /// `--dart-define` ; les appelants s'en remettent à la liste compilée.
+  static Uri? linkUri(String url, {Set<String>? allowedHosts}) {
+    final pinned = mediaUri(url);
+    if (pinned != null) return pinned;
+
+    final parsed = Uri.tryParse(url.trim());
+    if (parsed == null) return null;
+
+    // Hors backend, seul HTTPS : le contrôle d'hôte ne dit rien de qui répond
+    // au bout d'une liaison en clair. `hasAuthority` écarte au passage les
+    // formes sans hôte (« https:/promo »), dont `host` serait vide.
+    if (parsed.scheme != 'https' || !parsed.hasAuthority) return null;
+
+    return allowedLinkHosts.union(allowedHosts ?? const {}).contains(parsed.host)
+        ? parsed
+        : null;
+  }
+
+  /// Adresse d'un lien renvoyé par l'API, ou `null` s'il pointe ailleurs que
+  /// vers un hôte autorisé. Voir [linkUri].
+  static String? resolveLinkUrl(String url, {Set<String>? allowedHosts}) =>
+      linkUri(url, allowedHosts: allowedHosts)?.toString();
 
   /// Les images renvoyées par l'API pointent vers APP_URL du backend
   /// (localhost) : on les réécrit vers l'hôte joignable depuis l'appareil.

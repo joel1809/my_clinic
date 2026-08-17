@@ -40,13 +40,13 @@ class Popup {
             ? AppConfig.resolveMediaUrl(json['image_url'] as String)
             : null,
         buttonText: json['button_text'] as String?,
-        // Le lien du bouton passe par le même contrôle que l'illustration : il
-        // s'ouvre d'un tap, dans le navigateur du téléphone. Une réponse forgée
-        // enverrait sinon le patient — qui vient d'ouvrir l'application de sa
-        // clinique — sur l'adresse de son choix. Écarté, le bouton disparaît
-        // (voir `hasButton` dans info_popup.dart) plutôt que de rester inerte.
+        // Le lien du bouton est contrôlé comme l'illustration, aux hôtes tiers
+        // près : il mène au backend, ou à un hôte inscrit dans la liste fixée
+        // à la construction (voir AppConfig.linkUri). Écarté, le bouton
+        // disparaît (voir `hasButton` dans info_popup.dart) plutôt que de
+        // rester affiché sans rien faire.
         buttonUrl: json['button_url'] is String
-            ? AppConfig.resolveMediaUrl(json['button_url'] as String)
+            ? AppConfig.resolveLinkUrl(json['button_url'] as String)
             : null,
         frequency: json['frequency'] as String? ?? 'always',
         dailyDisplayLimit: (json['daily_display_limit'] as num?)?.toInt() ?? 1,

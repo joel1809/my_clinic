@@ -94,9 +94,9 @@ class _InfoPopupDialog extends StatelessWidget {
   final Popup popup;
 
   Future<void> _openButtonUrl() async {
-    // L'adresse est déjà épinglée à l'hôte du backend à la lecture de la
-    // réponse (Popup.fromJson) : un autre hôte, ou un schéma comme `tel:` ou
-    // `intent:`, n'arrive pas jusqu'ici.
+    // L'hôte est déjà contrôlé à la lecture de la réponse (Popup.fromJson) :
+    // une adresse hors backend et hors liste autorisée, ou un schéma comme
+    // `tel:` ou `intent:`, n'arrive pas jusqu'ici.
     final uri = Uri.tryParse(popup.buttonUrl ?? '');
     if (uri == null) return;
 
