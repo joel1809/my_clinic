@@ -84,8 +84,9 @@ class AppConfig {
   static String _withoutTrailingSlash(String url) =>
       url.replaceFirst(RegExp(r'/+$'), '');
 
-  /// Construit l'adresse d'un fichier servi par le backend, et refuse tout ce
-  /// qui pointerait ailleurs.
+  /// Construit l'adresse d'une ressource servie par le backend — fichier joint,
+  /// image, page vers laquelle un lien pointe — et refuse tout ce qui
+  /// pointerait ailleurs.
   ///
   /// Le chemin provient de l'API. Sans cette vérification, une réponse forgée
   /// ou un backend compromis pourrait faire ouvrir à l'utilisateur une adresse

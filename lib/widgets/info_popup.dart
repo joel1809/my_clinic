@@ -93,13 +93,13 @@ class _InfoPopupDialog extends StatelessWidget {
 
   final Popup popup;
 
-  Future<void> _openButtonUrl(BuildContext context) async {
+  Future<void> _openButtonUrl() async {
+    // L'adresse est déjà épinglée à l'hôte du backend à la lecture de la
+    // réponse (Popup.fromJson) : un autre hôte, ou un schéma comme `tel:` ou
+    // `intent:`, n'arrive pas jusqu'ici.
     final uri = Uri.tryParse(popup.buttonUrl ?? '');
-    // Seules les adresses web sont ouvertes : l'URL vient de l'administration
-    // mais on refuse tout autre schéma (tel:, intent:…) par prudence.
-    if (uri == null || !(uri.scheme == 'http' || uri.scheme == 'https')) {
-      return;
-    }
+    if (uri == null) return;
+
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -157,7 +157,7 @@ class _InfoPopupDialog extends StatelessWidget {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: () => _openButtonUrl(context),
+                              onPressed: _openButtonUrl,
                               child: Text(popup.buttonText!),
                             ),
                           ),

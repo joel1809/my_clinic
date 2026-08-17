@@ -2,12 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:my_clinic/models/popup.dart';
 
-Map<String, dynamic> _json({Object? storageKey, Object? imageUrl}) => {
+Map<String, dynamic> _json({
+  Object? storageKey,
+  Object? imageUrl,
+  Object? buttonUrl,
+}) =>
+    {
       'id': 7,
       'title': 'Campagne de vaccination',
       'content': '<p>Ouverture du centre <strong>lundi</strong>.</p>',
       'frequency': 'once',
       'image_url': imageUrl,
+      'button_text': 'En savoir plus',
+      'button_url': buttonUrl,
       'storage_key': storageKey,
     };
 
@@ -54,6 +61,28 @@ void main() {
           _json(imageUrl: 'http://localhost:8000/storage/popups/x.png'));
 
       expect(popup.imageUrl, endsWith('/storage/popups/x.png'));
+    });
+
+    test('écarte un lien de bouton pointant hors du backend', () {
+      // Le bouton s'ouvre d'un tap : sans ce contrôle, une réponse forgée
+      // choisirait la page vers laquelle envoyer le patient.
+      for (final forged in [
+        'https://exemple.test/promo',
+        '//exemple.test/promo',
+        'http://localhost:8000.exemple.test/promo',
+        'intent://exemple.test#Intent;end',
+        'tel:+237600000000',
+      ]) {
+        expect(Popup.fromJson(_json(buttonUrl: forged)).buttonUrl, isNull,
+            reason: forged);
+      }
+    });
+
+    test('garde un lien du backend', () {
+      final popup =
+          Popup.fromJson(_json(buttonUrl: 'http://localhost:8000/actualites/3'));
+
+      expect(popup.buttonUrl, endsWith('/actualites/3'));
     });
 
     test('rend le contenu lisible en texte brut', () {
