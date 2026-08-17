@@ -23,6 +23,7 @@ void main() {
   Future<void> pumpDetail(
     WidgetTester tester, {
     required User user,
+    _StubRepo? repo,
     Size size = const Size(390, 900),
     double textScale = 1.0,
   }) async {
@@ -33,7 +34,7 @@ void main() {
       MultiProvider(
         providers: [
           ChangeNotifierProvider<AuthState>.value(value: _StubAuth(user)),
-          Provider<AppointmentRepository>.value(value: _StubRepo()),
+          Provider<AppointmentRepository>.value(value: repo ?? _StubRepo()),
         ],
         child: MaterialApp(
           locale: const Locale('fr'),
@@ -74,6 +75,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('le médecin clôture le rendez-vous une fois le créneau écoulé',
+      (tester) async {
+    final repo = _StubRepo(completable: true);
+    await pumpDetail(tester, user: _doctor, repo: repo);
+
+    expect(find.textContaining('Le créneau est écoulé'), findsOneWidget);
+    expect(find.text('Terminer'), findsOneWidget);
+    expect(find.text('Confirmer'), findsNothing);
+    expect(find.text('Annuler'), findsNothing);
+
+    await tester.tap(find.text('Terminer'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Terminer ce rendez-vous ?'), findsOneWidget);
+    expect(repo.completedId, isNull);
+
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.widgetWithText(FilledButton, 'Terminer'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(repo.completedId, 10);
+    expect(find.text('Rendez-vous terminé.'), findsOneWidget);
+    // Barre d'actions repliée : plus rien à faire sur ce rendez-vous
+    expect(find.text('Terminer'), findsNothing);
+    expect(find.text('Terminé'), findsOneWidget);
+  });
+
+  testWidgets('le patient ne peut pas clôturer son rendez-vous',
+      (tester) async {
+    await pumpDetail(tester, user: _patient, repo: _StubRepo(completable: true));
+
+    expect(find.text('Terminer'), findsNothing);
+    expect(find.textContaining('Le créneau est écoulé'), findsNothing);
+  });
+
   // Un débordement fait échouer le test de lui-même : Flutter signale
   // « A RenderFlex overflowed » comme une erreur.
   for (final (width, scale) in [(320.0, 1.0), (320.0, 1.5), (412.0, 2.0)]) {
@@ -112,43 +150,84 @@ final _patient = User.fromJson({
 /// Rendez-vous de test : toujours à venir, donc confirmable et annulable.
 final _futureDate = DateTime.now().add(const Duration(days: 3));
 
-String get _futureDateString => '${_futureDate.year}-'
-    '${_futureDate.month.toString().padLeft(2, '0')}-'
-    '${_futureDate.day.toString().padLeft(2, '0')}';
+String _dateString(DateTime date) => '${date.year}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
 
-/// Repository de test : un rendez-vous en attente, aucun appel réseau.
+String get _futureDateString => _dateString(_futureDate);
+
+Map<String, dynamic> _appointmentJson({
+  String status = 'pending',
+  String statusLabel = 'En attente',
+  bool isCancellable = true,
+  bool isConfirmable = true,
+  bool isCompletable = false,
+  String? date,
+}) =>
+    {
+      'id': 10,
+      'scheduled_date': date ?? _futureDateString,
+      'start_time': '10:00',
+      'end_time': '10:30',
+      'reason': 'Contrôle annuel de la tension et bilan sanguin complet',
+      'status': status,
+      'status_label': statusLabel,
+      'is_cancellable': isCancellable,
+      'is_confirmable': isConfirmable,
+      'is_completable': isCompletable,
+      'created_at': '2026-07-20T10:00:00+00:00',
+      'doctor': {
+        'id': 1,
+        'full_name': 'Dr Emily Carter',
+        'appointment_duration': 30,
+        'specialty': {
+          'id': 3,
+          'name': 'Gynécologie Obstétrique',
+          'slug': 'gynecologie-obstetrique',
+        },
+      },
+      'patient': {
+        'id': 7,
+        'record_number': 'DOS-2026-0007',
+        'name': 'Awa Diomandé',
+        'phone': '+225 07 00 00 00',
+      },
+    };
+
+/// Repository de test : un rendez-vous en attente — ou, si [completable], un
+/// rendez-vous confirmé du jour dont le créneau est écoulé. Aucun appel réseau.
 class _StubRepo extends AppointmentRepository {
-  _StubRepo() : super(ApiClient());
+  _StubRepo({this.completable = false}) : super(ApiClient());
+
+  final bool completable;
+
+  int? completedId;
 
   @override
-  Future<Appointment> show(int id) async => Appointment.fromJson({
-        'id': 10,
-        'scheduled_date': _futureDateString,
-        'start_time': '10:00',
-        'end_time': '10:30',
-        'reason': 'Contrôle annuel de la tension et bilan sanguin complet',
-        'status': 'pending',
-        'status_label': 'En attente',
-        'is_cancellable': true,
-        'is_confirmable': true,
-        'created_at': '2026-07-20T10:00:00+00:00',
-        'doctor': {
-          'id': 1,
-          'full_name': 'Dr Emily Carter',
-          'appointment_duration': 30,
-          'specialty': {
-            'id': 3,
-            'name': 'Gynécologie Obstétrique',
-            'slug': 'gynecologie-obstetrique',
-          },
-        },
-        'patient': {
-          'id': 7,
-          'record_number': 'DOS-2026-0007',
-          'name': 'Awa Diomandé',
-          'phone': '+225 07 00 00 00',
-        },
-      });
+  Future<Appointment> show(int id) async => Appointment.fromJson(
+        completable
+            ? _appointmentJson(
+                status: 'confirmed',
+                statusLabel: 'Confirmé',
+                isCancellable: false,
+                isConfirmable: false,
+                isCompletable: true,
+                date: _dateString(DateTime.now()),
+              )
+            : _appointmentJson(),
+      );
+
+  @override
+  Future<Appointment> complete(int id) async {
+    completedId = id;
+    return Appointment.fromJson(_appointmentJson(
+      status: 'completed',
+      statusLabel: 'Terminé',
+      isCancellable: false,
+      isConfirmable: false,
+      date: _dateString(DateTime.now()),
+    ));
+  }
 }
 
 /// Session de test : utilisateur figé, aucun accès au stockage sécurisé.

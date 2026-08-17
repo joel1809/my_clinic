@@ -102,8 +102,8 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
 
     // Sans barre d'actions en dessous, c'est au contenu de laisser la place de
     // la zone système : sinon il passe sous la barre de navigation.
-    final hasActionBar =
-        appointment.isCancellable || (isStaff && appointment.isConfirmable);
+    final hasActionBar = appointment.isCancellable ||
+        (isStaff && (appointment.isConfirmable || appointment.isCompletable));
     final bottomInset =
         hasActionBar ? 8.0 : AppSpacing.page + MediaQuery.viewPaddingOf(context).bottom;
 
@@ -140,6 +140,15 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     isStaff
                         ? 'Ce rendez-vous attend votre confirmation.'
                         : 'En attente de confirmation par la clinique.',
+                    textAlign: TextAlign.center,
+                    style: text.bodySmall,
+                  ),
+                ]
+                // Le créneau est écoulé : le médecin clôture la consultation
+                else if (isStaff && appointment.isCompletable) ...[
+                  const SizedBox(height: AppSpacing.gap),
+                  Text(
+                    'Le créneau est écoulé : indiquez si la consultation a eu lieu.',
                     textAlign: TextAlign.center,
                     style: text.bodySmall,
                   ),
@@ -299,8 +308,12 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
   /// possible (rendez-vous passé, annulé ou terminé).
   Widget _buildActionBar(Appointment appointment, bool isStaff) {
     final canConfirm = isStaff && appointment.isConfirmable;
+    // Clôture : rendez-vous confirmé dont le créneau est écoulé
+    final canComplete = isStaff && appointment.isCompletable;
     final canCancel = appointment.isCancellable;
-    if (!canConfirm && !canCancel) return const SizedBox.shrink();
+    if (!canConfirm && !canComplete && !canCancel) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -342,33 +355,58 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     label: const Text('Annuler'),
                   ),
                 ),
-              if (canConfirm && canCancel) const SizedBox(width: 12),
+              if (canCancel && (canConfirm || canComplete))
+                const SizedBox(width: 12),
               if (canConfirm)
                 Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, AppSpacing.controlHeight),
-                      backgroundColor: AppPalette.success,
-                    ),
-                    onPressed: _busy
-                        ? null
-                        : () => _run(() => confirmAppointment(
-                            context, appointment, onBusy: _setBusy)),
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.check_circle_outline),
-                    label: const Text('Confirmer'),
+                  child: _filledAction(
+                    icon: Icons.check_circle_outline,
+                    label: 'Confirmer',
+                    color: AppPalette.success,
+                    onPressed: () => _run(() => confirmAppointment(
+                        context, appointment, onBusy: _setBusy)),
+                  ),
+                ),
+              if (canComplete)
+                Expanded(
+                  child: _filledAction(
+                    icon: Icons.task_alt_rounded,
+                    label: 'Terminer',
+                    color: AppPalette.inkMuted,
+                    onPressed: () => _run(() => completeAppointment(
+                        context, appointment, onBusy: _setBusy)),
                   ),
                 ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// Action principale de la barre : bouton plein qui laisse place à un
+  /// indicateur de chargement pendant l'appel à l'API.
+  Widget _filledAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return FilledButton.icon(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, AppSpacing.controlHeight),
+        backgroundColor: color,
+      ),
+      onPressed: _busy ? null : onPressed,
+      icon: _busy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child:
+                  CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : Icon(icon),
+      label: Text(label),
     );
   }
 

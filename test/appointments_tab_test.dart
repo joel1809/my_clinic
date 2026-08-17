@@ -89,6 +89,52 @@ void main() {
     expect(find.text('Rendez-vous annulé.'), findsOneWidget);
   });
 
+  testWidgets('le médecin clôture un rendez-vous dont le créneau est écoulé',
+      (tester) async {
+    final repo = _StubAppointmentRepo(completable: true);
+    await pumpTab(tester, user: _doctor, repo: repo);
+
+    // Le rendez-vous est confirmé : seule la clôture est proposée
+    expect(find.text('Confirmé'), findsOneWidget);
+    expect(find.text('Terminer'), findsOneWidget);
+    expect(find.text('Confirmer'), findsNothing);
+    expect(find.text('Annuler'), findsNothing);
+
+    await tester.tap(find.text('Terminer'));
+    await tester.pumpAndSettle();
+
+    // Confirmation demandée avant d'appeler l'API
+    expect(find.text('Terminer ce rendez-vous ?'), findsOneWidget);
+    expect(repo.completedId, isNull);
+
+    await tester.tap(find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.widgetWithText(FilledButton, 'Terminer'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(repo.completedId, 10);
+    expect(find.text('Rendez-vous terminé.'), findsOneWidget);
+
+    // Clôturé, le rendez-vous quitte « À venir » pour l'historique, sans
+    // action restante
+    expect(find.text('Terminer'), findsNothing);
+    await tester.tap(find.text('Historique'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Terminé'), findsOneWidget);
+    expect(find.text('Terminer'), findsNothing);
+  });
+
+  testWidgets('le patient ne voit pas la clôture de son rendez-vous',
+      (tester) async {
+    final repo = _StubAppointmentRepo(completable: true);
+    await pumpTab(tester, user: _patient, repo: repo);
+
+    expect(find.text('Confirmé'), findsOneWidget);
+    expect(find.text('Terminer'), findsNothing);
+  });
+
   testWidgets('le patient ne peut pas confirmer son rendez-vous',
       (tester) async {
     final repo = _StubAppointmentRepo();
@@ -131,19 +177,27 @@ final _patient = User.fromJson({
 /// Date du rendez-vous de test : toujours à venir.
 final _futureDate = DateTime.now().add(const Duration(days: 3));
 
-String get _futureDateString => '${_futureDate.year}-'
-    '${_futureDate.month.toString().padLeft(2, '0')}-'
-    '${_futureDate.day.toString().padLeft(2, '0')}';
+String _dateString(DateTime date) => '${date.year}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
+
+String get _futureDateString => _dateString(_futureDate);
+
+/// Un rendez-vous terminable a eu lieu le jour même : il reste donc dans
+/// « À venir », là où le médecin le clôture.
+String get _todayDateString => _dateString(DateTime.now());
 
 Map<String, dynamic> _appointmentJson({
   String status = 'pending',
   String statusLabel = 'En attente',
   bool isConfirmable = true,
   bool isCancellable = true,
+  bool isCompletable = false,
+  String? date,
 }) =>
     {
       'id': 10,
-      'scheduled_date': _futureDateString,
+      'scheduled_date': date ?? _futureDateString,
       'start_time': '09:00',
       'end_time': '09:30',
       'reason': 'Contrôle annuel',
@@ -151,6 +205,7 @@ Map<String, dynamic> _appointmentJson({
       'status_label': statusLabel,
       'is_cancellable': isCancellable,
       'is_confirmable': isConfirmable,
+      'is_completable': isCompletable,
       'doctor': {
         'id': 1,
         'full_name': 'Dr Ndiaye',
@@ -160,19 +215,46 @@ Map<String, dynamic> _appointmentJson({
       'patient': {'id': 7, 'name': 'Awa Diomandé', 'phone': '+225 07 00 00 00'},
     };
 
-/// Repository de test : une seule page contenant une demande en attente.
+/// Repository de test : une seule page contenant une demande en attente, ou
+/// un rendez-vous confirmé dont le créneau est écoulé si [completable].
 class _StubAppointmentRepo extends AppointmentRepository {
-  _StubAppointmentRepo() : super(ApiClient());
+  _StubAppointmentRepo({this.completable = false}) : super(ApiClient());
+
+  final bool completable;
 
   int? confirmedId;
   int? cancelledId;
+  int? completedId;
+
+  Map<String, dynamic> get _item => completable
+      ? _appointmentJson(
+          status: 'confirmed',
+          statusLabel: 'Confirmé',
+          isConfirmable: false,
+          isCancellable: false,
+          isCompletable: true,
+          date: _todayDateString,
+        )
+      : _appointmentJson();
 
   @override
   Future<Paginated<Appointment>> list({int page = 1}) async => Paginated(
-        items: [Appointment.fromJson(_appointmentJson())],
+        items: [Appointment.fromJson(_item)],
         currentPage: 1,
         lastPage: 1,
       );
+
+  @override
+  Future<Appointment> complete(int id) async {
+    completedId = id;
+    return Appointment.fromJson(_appointmentJson(
+      status: 'completed',
+      statusLabel: 'Terminé',
+      isConfirmable: false,
+      isCancellable: false,
+      date: _todayDateString,
+    ));
+  }
 
   @override
   Future<Appointment> confirm(int id) async {

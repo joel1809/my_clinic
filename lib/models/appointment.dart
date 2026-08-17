@@ -45,6 +45,7 @@ class Appointment {
     required this.statusLabel,
     required this.isCancellable,
     required this.isConfirmable,
+    required this.isCompletable,
     this.doctor,
     this.insurances = const [],
     this.patient,
@@ -60,6 +61,11 @@ class Appointment {
   final String statusLabel;
   final bool isCancellable;
   final bool isConfirmable;
+
+  /// Le rendez-vous peut-il être clôturé par le médecin consulté ? Le serveur
+  /// ne l'accorde qu'à un rendez-vous confirmé dont le créneau est écoulé.
+  final bool isCompletable;
+
   final Doctor? doctor;
 
   /// Assurances déclarées par le patient à la réservation.
@@ -78,6 +84,7 @@ class Appointment {
         statusLabel: json['status_label'] as String,
         isCancellable: json['is_cancellable'] as bool? ?? false,
         isConfirmable: json['is_confirmable'] as bool? ?? false,
+        isCompletable: json['is_completable'] as bool? ?? false,
         doctor: json['doctor'] is Map<String, dynamic>
             ? Doctor.fromJson(json['doctor'] as Map<String, dynamic>)
             : null,

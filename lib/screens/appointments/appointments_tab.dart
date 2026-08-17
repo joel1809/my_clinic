@@ -106,8 +106,8 @@ class _AppointmentsTabState extends State<AppointmentsTab> {
     setState(() => _filter = filter);
   }
 
-  /// Remplace un rendez-vous par sa version mise à jour (après confirmation
-  /// ou annulation) sans recharger toute la liste.
+  /// Remplace un rendez-vous par sa version mise à jour (après confirmation,
+  /// clôture ou annulation) sans recharger toute la liste.
   void _replace(Appointment appointment) {
     final index = _appointments.indexWhere((a) => a.id == appointment.id);
     if (index == -1) return;
@@ -326,7 +326,8 @@ class AppointmentCard extends StatefulWidget {
   final Appointment appointment;
   final bool isStaff;
 
-  /// Appelé avec le rendez-vous mis à jour après confirmation / annulation.
+  /// Appelé avec le rendez-vous mis à jour après confirmation, clôture ou
+  /// annulation.
   final ValueChanged<Appointment> onUpdated;
 
   /// Appelé au retour de l'écran de détail si quelque chose y a changé.
@@ -348,6 +349,36 @@ class _AppointmentCardState extends State<AppointmentCard> {
     if (updated != null) widget.onUpdated(updated);
   }
 
+  /// Action principale de la carte : bouton plein qui laisse place à un
+  /// indicateur de chargement pendant l'appel à l'API.
+  Widget _filledAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return FilledButton.icon(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 44),
+        backgroundColor: color,
+        textStyle: Theme.of(context)
+            .textTheme
+            .labelMedium
+            ?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      onPressed: _busy ? null : onPressed,
+      icon: _busy
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child:
+                  CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : Icon(icon, size: 17),
+      label: Text(label),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appointment = widget.appointment;
@@ -366,6 +397,8 @@ class _AppointmentCardState extends State<AppointmentCard> {
         : appointment.doctor?.specialty?.name;
 
     final canConfirm = isStaff && appointment.isConfirmable;
+    // Clôture proposée dès que le créneau du rendez-vous confirmé est écoulé
+    final canComplete = isStaff && appointment.isCompletable;
     final canCancel = appointment.isCancellable;
 
     final text = Theme.of(context).textTheme;
@@ -480,7 +513,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                     ),
                   ),
                 ],
-                if (canConfirm || canCancel) ...[
+                if (canConfirm || canComplete || canCancel) ...[
                   const SizedBox(height: AppSpacing.gap),
                   Row(
                     children: [
@@ -511,37 +544,36 @@ class _AppointmentCardState extends State<AppointmentCard> {
                             label: const Text('Annuler'),
                           ),
                         ),
-                      if (canConfirm && canCancel) const SizedBox(width: 10),
+                      if (canCancel && (canConfirm || canComplete))
+                        const SizedBox(width: 10),
                       if (canConfirm)
                         Expanded(
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 44),
-                              backgroundColor: AppPalette.success,
-                              textStyle: text.labelMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
+                          child: _filledAction(
+                            icon: Icons.check_rounded,
+                            label: 'Confirmer',
+                            color: AppPalette.success,
+                            onPressed: () => _run(
+                              () => confirmAppointment(
+                                context,
+                                appointment,
+                                onBusy: _setBusy,
                               ),
                             ),
-                            onPressed: _busy
-                                ? null
-                                : () => _run(
-                                    () => confirmAppointment(
-                                      context,
-                                      appointment,
-                                      onBusy: _setBusy,
-                                    ),
-                                  ),
-                            icon: _busy
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.check_rounded, size: 17),
-                            label: const Text('Confirmer'),
+                          ),
+                        ),
+                      if (canComplete)
+                        Expanded(
+                          child: _filledAction(
+                            icon: Icons.task_alt_rounded,
+                            label: 'Terminer',
+                            color: AppPalette.inkMuted,
+                            onPressed: () => _run(
+                              () => completeAppointment(
+                                context,
+                                appointment,
+                                onBusy: _setBusy,
+                              ),
+                            ),
                           ),
                         ),
                     ],

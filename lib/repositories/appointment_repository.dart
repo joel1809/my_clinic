@@ -53,4 +53,12 @@ class AppointmentRepository {
         await _api.patch('/appointments/$id/confirm') as Map<String, dynamic>;
     return Appointment.fromJson(json['data'] as Map<String, dynamic>);
   }
+
+  /// Clôture un rendez-vous confirmé dont le créneau est écoulé : la
+  /// consultation a eu lieu (médecin consulté ou administrateur).
+  Future<Appointment> complete(int id) async {
+    final json =
+        await _api.patch('/appointments/$id/complete') as Map<String, dynamic>;
+    return Appointment.fromJson(json['data'] as Map<String, dynamic>);
+  }
 }

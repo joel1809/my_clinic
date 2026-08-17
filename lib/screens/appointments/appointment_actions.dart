@@ -4,12 +4,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/appointment.dart';
 import '../../repositories/appointment_repository.dart';
+import '../../theme.dart';
 import '../../widgets/shared.dart';
 
-/// Actions de gestion d'un rendez-vous (confirmation, annulation, appel du
-/// patient) partagées par la liste et le détail : chaque écran garde son
-/// propre indicateur de chargement mais la confirmation utilisateur, l'appel
-/// à l'API et les messages restent identiques partout.
+/// Actions de gestion d'un rendez-vous (confirmation, clôture, annulation,
+/// appel du patient) partagées par la liste et le détail : chaque écran garde
+/// son propre indicateur de chargement mais la confirmation utilisateur,
+/// l'appel à l'API et les messages restent identiques partout.
 ///
 /// Chaque action renvoie le rendez-vous mis à jour, ou `null` si l'utilisateur
 /// a renoncé ou si l'appel a échoué (l'erreur est déjà affichée). `onBusy`
@@ -43,6 +44,48 @@ Future<Appointment?> confirmAppointment(
     final updated =
         await context.read<AppointmentRepository>().confirm(appointment.id);
     if (context.mounted) showSuccess(context, 'Rendez-vous confirmé.');
+    return updated;
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+    return null;
+  } finally {
+    onBusy(false);
+  }
+}
+
+/// Demande confirmation puis clôture le rendez-vous (médecin / administrateur).
+///
+/// Le serveur n'ouvre cette action qu'à un rendez-vous confirmé dont le
+/// créneau est écoulé (`is_completable`) : la consultation a eu lieu.
+Future<Appointment?> completeAppointment(
+  BuildContext context,
+  Appointment appointment, {
+  required ValueChanged<bool> onBusy,
+}) async {
+  final agreed = await showDialog<bool>(
+    context: context,
+    builder: (context) => _ActionDialog(
+      icon: Icons.task_alt_rounded,
+      // Couleur du statut « Terminé », pour que l'action annonce l'état
+      // dans lequel elle place le rendez-vous
+      color: AppPalette.inkMuted,
+      title: 'Terminer ce rendez-vous ?',
+      message: appointment.patient?.name != null
+          ? 'La consultation de ${appointment.patient!.name} du '
+              '${appointment.longDateLabel.toLowerCase()} à '
+              '${appointment.startTime} sera marquée comme terminée.'
+          : 'La consultation sera marquée comme terminée.',
+      cancelLabel: 'Pas maintenant',
+      confirmLabel: 'Terminer',
+    ),
+  );
+  if (agreed != true || !context.mounted) return null;
+
+  onBusy(true);
+  try {
+    final updated =
+        await context.read<AppointmentRepository>().complete(appointment.id);
+    if (context.mounted) showSuccess(context, 'Rendez-vous terminé.');
     return updated;
   } catch (e) {
     if (context.mounted) showError(context, e);
